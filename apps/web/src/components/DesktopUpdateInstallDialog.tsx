@@ -99,9 +99,7 @@ export function DesktopUpdateInstallDialog() {
             role="status"
             className="fixed bottom-4 right-4 z-50 flex max-w-sm items-center gap-3 rounded-lg border bg-popover p-3 text-sm text-popover-foreground shadow-lg"
           >
-            <span>
-              Update to {state.scheduledVersion} when all agents are done. Keep this window open.
-            </span>
+            <span>Update to {state.scheduledVersion} when idle. Keep this window open.</span>
             <Button size="sm" variant="outline" onClick={desktopUpdateScheduler.cancel}>
               Cancel update
             </Button>
@@ -119,7 +117,7 @@ export function DesktopUpdateInstallDialog() {
             <AlertDialogTitle>Update to {state.dialogVersion}?</AlertDialogTitle>
             <AlertDialogDescription>
               Update now restarts T3 Code and interrupts running agents. Or keep this window open to
-              update automatically when all agents in your enabled environments are done.
+              update automatically when all agents in your enabled environments are idle.
               Disconnected environments, agents waiting for input, and background agents will keep
               the update waiting.
             </AlertDialogDescription>
@@ -136,7 +134,7 @@ export function DesktopUpdateInstallDialog() {
               Update now
             </Button>
             <Button disabled={state.installing} onClick={desktopUpdateScheduler.schedule}>
-              Update when all agents are done
+              Update when idle
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>
