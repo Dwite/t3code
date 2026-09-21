@@ -1,3 +1,4 @@
+import { useActiveThreadSort } from "../threads/use-active-thread-sort";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import { createThreadMovePlanner } from "../threads/threadOrder";
 import {
@@ -655,6 +656,7 @@ export function HomeScreen(props: HomeScreenProps) {
       ),
     [serverConfigs],
   );
+  const { order: activeThreadSortOrder } = useActiveThreadSort();
   const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
   const threadMovePlanners = useMemo(() => {
     const sectionPlanner = (section: "pinned" | "active") =>
@@ -665,12 +667,14 @@ export function HomeScreen(props: HomeScreenProps) {
           [...serverConfigs].flatMap(([id, config]) =>
             (section === "pinned"
               ? config.environment.capabilities.threadPinReorder
-              : config.environment.capabilities.threadActiveReorder) === true
+              : activeThreadSortOrder === "manual" &&
+                config.environment.capabilities.threadActiveReorder) === true
               ? [id]
               : [],
           ),
         ),
         ordered: getThreadListV2OrderedSection({
+          activeThreadSortOrder,
           threads: props.threads,
           section,
           pendingOrder,
@@ -682,6 +686,7 @@ export function HomeScreen(props: HomeScreenProps) {
       });
     return { pinned: sectionPlanner("pinned"), active: sectionPlanner("active") };
   }, [
+    activeThreadSortOrder,
     serverConfigs,
     props.threads,
     pendingOrder,
@@ -705,6 +710,7 @@ export function HomeScreen(props: HomeScreenProps) {
     // Settled threads are live shells; archived threads keep their original
     // "hidden from lists" meaning.
     return buildThreadListV2Items({
+      activeThreadSortOrder,
       pendingOrder,
       threads: props.threads.filter((thread) => thread.archivedAt === null),
       environmentId: props.selectedEnvironmentId,
@@ -721,6 +727,7 @@ export function HomeScreen(props: HomeScreenProps) {
       selectedThreadKey: null,
     });
   }, [
+    activeThreadSortOrder,
     pendingOrder,
     queuedThreadKeys,
     nowMinute,

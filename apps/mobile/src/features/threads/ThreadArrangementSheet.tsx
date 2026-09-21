@@ -1,3 +1,4 @@
+import { useActiveThreadSort } from "./use-active-thread-sort";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -150,6 +151,7 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
   const configs = useAtomValue(environmentServerConfigsAtom);
+  const { order: activeThreadSortOrder } = useActiveThreadSort();
   const queuedThreadKeys = useAtomValue(queuedThreadKeysAtom);
   const pendingOrder = useAtomValue(pendingThreadOrderAtom);
   const dropBusy = useAtomValue(threadDropBusyAtom);
@@ -172,6 +174,7 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
   }, [threads, now]);
   const sections = useMemo(() => {
     const shared = {
+      activeThreadSortOrder,
       threads,
       now,
       queuedThreadKeys,
@@ -199,7 +202,7 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
       snoozed: parked.filter((thread) => effectiveSnoozed(thread, { now })),
       settled: parked.filter((thread) => !effectiveSnoozed(thread, { now })),
     };
-  }, [threads, configs, now, queuedThreadKeys, pendingOrder]);
+  }, [activeThreadSortOrder, threads, configs, now, queuedThreadKeys, pendingOrder]);
   const planners = useMemo(() => {
     const planner = (section: "pinned" | "active") =>
       createThreadMovePlanner({
@@ -211,7 +214,8 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
             (
               section === "pinned"
                 ? config.environment.capabilities.threadPinReorder
-                : config.environment.capabilities.threadActiveReorder
+                : activeThreadSortOrder === "manual" &&
+                  config.environment.capabilities.threadActiveReorder
             )
               ? [id]
               : [],
@@ -219,7 +223,7 @@ export function ThreadArrangementSheet(props: { onClose: () => void }) {
         ),
       });
     return { pinned: planner("pinned"), active: planner("active") };
-  }, [sections, threads, configs]);
+  }, [activeThreadSortOrder, sections, threads, configs]);
   const rows = useMemo(() => {
     const result: Row[] = [];
     let offset = 0;

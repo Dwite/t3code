@@ -1,3 +1,5 @@
+import { useActiveThreadSort } from "../threads/use-active-thread-sort";
+import { ACTIVE_THREAD_SORT_OPTIONS } from "@t3tools/client-runtime/state/shared-settings";
 import { NativeHeaderToolbar, NativeStackScreenOptions } from "../../native/StackHeader";
 import { useCallback, useRef } from "react";
 import type { SearchBarCommands } from "react-native-screens";
@@ -22,12 +24,12 @@ export type { HomeHeaderEnvironment } from "./HomeHeader.types";
 export function HomeHeader(props: HomeHeaderProps) {
   const searchBarRef = useRef<SearchBarCommands>(null);
   const iconColor = useUniwindTheme()["--color-icon"];
-  // Thread List v2 lays the list out in fixed creation order, so the
-  // sort/group filter controls would be silently ignored — hide them and
-  // key the "customized" icon state off the environment filter alone.
   const threadListV2Enabled = useThreadListV2Enabled();
+  const { order, setOrder, available } = useActiveThreadSort();
   const hasCustomListOptions = threadListV2Enabled
-    ? props.selectedEnvironmentId !== null || props.selectedProjectKey !== null
+    ? props.selectedEnvironmentId !== null ||
+      props.selectedProjectKey !== null ||
+      order !== "manual"
     : hasCustomHomeListOptions(props);
   const focusSearch = useCallback(() => {
     searchBarRef.current?.focus();
@@ -37,6 +39,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   const filterMenu = buildHomeListFilterMenu({
     ...props,
     listOrganization: !threadListV2Enabled,
+    ...(available ? { activeThreadSort: { order, onChange: setOrder } } : {}),
   });
 
   return (
@@ -166,6 +169,20 @@ export function HomeHeader(props: HomeHeaderProps) {
               </NativeHeaderToolbar.Menu>
             )}
 
+            {threadListV2Enabled && available ? (
+              <NativeHeaderToolbar.Menu title="Sort active threads">
+                <NativeHeaderToolbar.Label>Sort active threads</NativeHeaderToolbar.Label>
+                {ACTIVE_THREAD_SORT_OPTIONS.map((option) => (
+                  <NativeHeaderToolbar.MenuAction
+                    key={option.value}
+                    isOn={order === option.value}
+                    onPress={() => setOrder(option.value)}
+                  >
+                    <NativeHeaderToolbar.Label>{option.label}</NativeHeaderToolbar.Label>
+                  </NativeHeaderToolbar.MenuAction>
+                ))}
+              </NativeHeaderToolbar.Menu>
+            ) : null}
             {threadListV2Enabled ? null : (
               <NativeHeaderToolbar.Menu title="Sort threads">
                 <NativeHeaderToolbar.Label>Sort threads</NativeHeaderToolbar.Label>

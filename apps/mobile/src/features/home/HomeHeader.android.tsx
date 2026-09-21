@@ -1,3 +1,5 @@
+import { useActiveThreadSort } from "../threads/use-active-thread-sort";
+import { ACTIVE_THREAD_SORT_OPTIONS } from "@t3tools/client-runtime/state/shared-settings";
 import type { MenuAction } from "@react-native-menu/menu";
 import { useCallback, useMemo } from "react";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
@@ -17,15 +19,28 @@ function checkedMenuState(checked: boolean) {
 }
 
 export function HomeHeader(props: HomeHeaderProps) {
-  // Thread List v2 lays the list out in fixed creation order, so the
-  // sort/group filter controls would be silently ignored — hide them and
-  // key the "customized" icon state off the environment filter alone.
   const threadListV2Enabled = useThreadListV2Enabled();
+  const { order, setOrder, available } = useActiveThreadSort();
   const hasCustomListOptions = threadListV2Enabled
-    ? props.selectedEnvironmentId !== null || props.selectedProjectKey !== null
+    ? props.selectedEnvironmentId !== null ||
+      props.selectedProjectKey !== null ||
+      order !== "manual"
     : hasCustomHomeListOptions(props);
   const menuActions = useMemo<MenuAction[]>(
     () => [
+      ...(threadListV2Enabled && available
+        ? [
+            {
+              id: "active-sort",
+              title: "Sort active threads",
+              subactions: ACTIVE_THREAD_SORT_OPTIONS.map((option) => ({
+                id: `active-sort:${option.value}`,
+                title: option.label,
+                state: checkedMenuState(order === option.value),
+              })),
+            },
+          ]
+        : []),
       {
         id: "environment",
         title: "Environment",
@@ -86,6 +101,8 @@ export function HomeHeader(props: HomeHeaderProps) {
           ] satisfies MenuAction[])),
     ],
     [
+      order,
+      available,
       props.environments,
       props.projectSortOrder,
       props.projects,
@@ -98,6 +115,13 @@ export function HomeHeader(props: HomeHeaderProps) {
   const handleMenuAction = useCallback(
     (event: { nativeEvent: { event: string } }) => {
       const id = event.nativeEvent.event;
+      const activeSort = ACTIVE_THREAD_SORT_OPTIONS.find(
+        (option) => id === `active-sort:${option.value}`,
+      );
+      if (threadListV2Enabled && available && activeSort) {
+        setOrder(activeSort.value);
+        return;
+      }
       if (id === "environment:all") {
         props.onEnvironmentChange(null);
         return;
@@ -141,7 +165,7 @@ export function HomeHeader(props: HomeHeaderProps) {
         return;
       }
     },
-    [props],
+    [props, threadListV2Enabled, available, setOrder],
   );
 
   return (

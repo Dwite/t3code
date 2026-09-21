@@ -1,3 +1,5 @@
+import { ACTIVE_THREAD_SORT_OPTIONS } from "@t3tools/client-runtime/state/shared-settings";
+import type { ActiveThreadSortOrder } from "@t3tools/contracts/settings";
 import type { EnvironmentId, SidebarThreadSortOrder } from "@t3tools/contracts";
 
 import type { HomeProjectSortOrder } from "./homeThreadList";
@@ -43,9 +45,11 @@ export function buildHomeListFilterMenu(props: {
   readonly onProjectChange: (projectKey: string | null) => void;
   readonly onProjectSortOrderChange: (sortOrder: HomeProjectSortOrder) => void;
   readonly onThreadSortOrderChange: (sortOrder: SidebarThreadSortOrder) => void;
-  /** False hides the sort/group submenus. Thread List v2 uses a fixed
-      creation-order layout, so offering those controls while it silently
-      ignores them would be a lie; the environment filter still applies. */
+  readonly activeThreadSort?: {
+    order: ActiveThreadSortOrder;
+    onChange: (order: ActiveThreadSortOrder) => void;
+  };
+  /** Legacy organization controls; v2 has its own active-thread sort. */
   readonly listOrganization?: boolean;
 }): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
@@ -118,6 +122,20 @@ export function buildHomeListFilterMenu(props: {
         })),
       },
     );
+  }
+
+  if (props.listOrganization === false && props.activeThreadSort) {
+    const sort = props.activeThreadSort;
+    items.push({
+      type: "submenu",
+      title: "Sort active threads",
+      items: ACTIVE_THREAD_SORT_OPTIONS.map((option) => ({
+        type: "action",
+        title: option.label,
+        state: sort.order === option.value ? "on" : "off",
+        onPress: () => sort.onChange(option.value),
+      })),
+    });
   }
 
   return {

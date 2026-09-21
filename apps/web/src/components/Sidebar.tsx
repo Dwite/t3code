@@ -1,3 +1,4 @@
+import { useActiveThreadSort } from "../hooks/useActiveThreadSort";
 import { requestCustomSnooze } from "./CustomSnoozeDialog";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
@@ -124,7 +125,7 @@ import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
+import { useClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -2158,8 +2159,11 @@ export default function Sidebar() {
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
-  const activeThreadSortOrder = useClientSettings((s) => s.activeThreadSortOrder);
-  const updateClientSettings = useUpdateClientSettings();
+  const {
+    order: activeThreadSortOrder,
+    setOrder: setActiveThreadSortOrder,
+    available: sortAvailable,
+  } = useActiveThreadSort();
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
@@ -2624,7 +2628,9 @@ export default function Sidebar() {
       draggableThreadKeys: draggable,
       activeReorderableThreadKeys: activeReorderable,
       activeThreads:
-        optimisticDrop?.section !== "active" || optimisticDrop.order === null
+        activeThreadSortOrder === "last_message" ||
+        optimisticDrop?.section !== "active" ||
+        optimisticDrop.order === null
           ? sortedActive
           : orderItemsByPreferredIds({
               items: sortedActive,
@@ -4575,7 +4581,10 @@ export default function Sidebar() {
               }
               sortControl={
                 <Menu>
-                  <MenuTrigger render={<SidebarHeaderIconButton label="Sort threads" />}>
+                  <MenuTrigger
+                    disabled={!sortAvailable}
+                    render={<SidebarHeaderIconButton label="Sort threads" />}
+                  >
                     <ArrowUpDownIcon />
                   </MenuTrigger>
                   <MenuPopup align="end" side="bottom" className="min-w-48">
@@ -4587,7 +4596,7 @@ export default function Sidebar() {
                       onValueChange={(value) => {
                         if (value === "manual" || value === "last_message") {
                           setOptimisticDrop(null);
-                          updateClientSettings({ activeThreadSortOrder: value });
+                          setActiveThreadSortOrder(value);
                         }
                       }}
                     >

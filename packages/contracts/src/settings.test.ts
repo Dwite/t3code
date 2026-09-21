@@ -21,18 +21,18 @@ const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
 describe("active thread sort preference", () => {
-  it("keeps configured ordering for existing clients regardless of the legacy sort", () => {
-    expect(decodeClientSettings({}).activeThreadSortOrder).toBe("manual");
-    expect(
-      decodeClientSettings({ sidebarThreadSortOrder: "updated_at" }).activeThreadSortOrder,
-    ).toBe("manual");
+  it("keeps configured ordering for existing servers", () => {
+    expect(decodeServerSettings({}).activeThreadSortOrder).toBe("manual");
+    expect(decodeServerSettings({ sidebarAutoSettleOnMerge: false }).activeThreadSortOrder).toBe(
+      "manual",
+    );
   });
   it.each(["manual", "last_message"])(
-    "persists %s without changing the legacy preference",
+    "persists %s as a shared server preference",
     (activeThreadSortOrder) => {
       const patch = { activeThreadSortOrder };
-      expect(decodeClientSettingsPatch(patch)).toEqual(patch);
-      expect(encodeClientSettings(decodeClientSettings(patch))).toMatchObject(patch);
+      expect(decodeServerSettingsPatch(patch)).toEqual(patch);
+      expect(encodeServerSettings(decodeServerSettings(patch))).toMatchObject(patch);
     },
   );
 });
