@@ -394,7 +394,11 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
     ownerKey: composerOwnerKey,
     draftMessage: props.draftMessage,
     selection: composerMenu.selection,
-    onChangeDraftMessage: props.onChangeDraftMessage,
+    onChangeDraftMessage: (message) => {
+      props.onChangeDraftMessage(message);
+      // Open the completed transcript for review, including when dictation began collapsed.
+      inputRef.current?.focus();
+    },
     onChangeSelection: composerMenu.onSelectionChange,
   });
   const voicePresentation = resolveVoiceComposerPresentation(
