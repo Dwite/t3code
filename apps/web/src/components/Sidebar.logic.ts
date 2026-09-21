@@ -7,9 +7,16 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
 import type { ContextMenuItem, EnvironmentId, ThreadId } from "@t3tools/contracts";
-import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@t3tools/contracts/settings";
+import type {
+  ActiveThreadSortOrder,
+  SidebarProjectSortOrder,
+  SidebarThreadSortOrder,
+} from "@t3tools/contracts/settings";
 import type { AsyncResult } from "effect/unstable/reactivity";
-import { planPinnedReorder } from "@t3tools/client-runtime/state/thread-sort";
+import {
+  sortActiveThreadsByOrderKey,
+  planPinnedReorder,
+} from "@t3tools/client-runtime/state/thread-sort";
 import {
   effectiveSnoozed,
   type ThreadSnoozeShell,
@@ -889,7 +896,29 @@ function firstValidTimestamp(
   return null;
 }
 
-export { sortActiveThreadsByOrderKey as sortThreadsForSidebar } from "@t3tools/client-runtime/state/thread-sort";
+/** Last-message sorting is a view preference; saved arrangement keys stay intact. */
+export function sortThreadsForSidebar<
+  T extends {
+    readonly id: string;
+    readonly createdAt: string;
+    readonly unsettledAt?: string | null | undefined;
+    readonly activeOrderKey?: string | null | undefined;
+    readonly environmentId?: string | undefined;
+    readonly latestUserMessageAt?: string | null | undefined;
+  },
+>(threads: readonly T[], order: ActiveThreadSortOrder = "manual"): T[] {
+  const arranged = sortActiveThreadsByOrderKey(threads);
+  if (order === "manual") return arranged;
+  const timestamps = new Map(
+    arranged.map((thread) => [
+      thread,
+      toSortableTimestamp(thread.latestUserMessageAt ?? undefined) ??
+        toSortableTimestamp(thread.createdAt) ??
+        0,
+    ]),
+  );
+  return arranged.sort((left, right) => timestamps.get(right)! - timestamps.get(left)!);
+}
 
 // Pinned-reorder key math and the keyed sort live in client-runtime
 // (state/thread-sort) so web and mobile compute identical pinned orders.

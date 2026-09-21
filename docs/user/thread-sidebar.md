@@ -77,8 +77,14 @@ after the drop.
 
 New threads appear above the active threads you have arranged. Settling clears a thread's active
 position, so using **Un-settle** returns it to the top. Pinning and snoozing preserve its active
-position until you move it again. Thread activity does not change the order. The settled shelf
-continues to use settlement time.
+position until you move it again. By default, thread activity does not change the order.
+
+On web and desktop, use **Sort threads** beside search to choose **Last message**. Active
+threads then sort by your most recent message, newest first. The choice is saved on this
+client. Choose **Configured order** to restore your arrangement and enable drag reordering
+within the active section again. Pinned and snoozed threads keep their existing order.
+
+The settled shelf continues to use settlement time.
 
 If dragging is unavailable for one environment, update the T3 Code server running in that
 environment. Pinned and active reordering require server support. Threads from older servers keep
