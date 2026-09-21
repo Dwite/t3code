@@ -353,7 +353,6 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   // animation, so the composer would ride down flush to the screen edge and
   // then snap up into the inset. On iOS blur precedes the hide, so the
   // focus-keyed inset is already in place while the composer rides down.
-  // Dictation review can expand the card without opening the keyboard.
   const composerBottomInset = (Platform.OS === "android" ? isKeyboardVisible : composerFocused)
     ? 0
     : Math.max(insets.bottom, 12);

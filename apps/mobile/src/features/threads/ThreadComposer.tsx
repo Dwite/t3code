@@ -121,7 +121,6 @@ export const COMPOSER_COLLAPSED_CHROME = 60;
  * Used by the parent to compute the larger feed bottom inset when the composer is focused.
  */
 export const COMPOSER_EXPANDED_CHROME = 156;
-// Dictation review uses the full 160-point editor instead of the 72-point minimum.
 export const COMPOSER_DICTATION_REVIEW_CHROME = COMPOSER_EXPANDED_CHROME + 160 - 72;
 
 export interface ThreadComposerProps {
