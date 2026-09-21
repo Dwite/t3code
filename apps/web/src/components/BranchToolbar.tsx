@@ -56,6 +56,7 @@ import { Separator } from "./ui/separator";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { MiddleTruncate } from "./ui/middle-truncate";
 import { ComposerSurface } from "./chat/ComposerSurface";
+import { COMPOSER_CONTEXT_LAYOUT_EVENT } from "./chat/composerControlsTransition";
 import { useComposerMenuProps } from "./chat/composerEventScope";
 import { measureRestingComposerControls } from "./chat/restingComposerControlsMeasurement";
 import { resolveRestingComposerControlsNaturalWidth } from "./composerFooterLayout";
@@ -387,6 +388,21 @@ function useLabelsOverflow(element: HTMLDivElement | null): boolean {
       let textWidth = label.scrollWidth;
       for (const inner of label.querySelectorAll<HTMLElement>("*")) {
         textWidth = Math.max(textWidth, inner.scrollWidth);
+        // Middle-truncated labels split the text across flex children. A
+        // collapsed wrapper only exposes one half through scrollWidth, so
+        // reserve both halves or the compact decision can alternate forever.
+        const style = getComputedStyle(inner);
+        if (style.display === "flex" || style.display === "inline-flex") {
+          const childrenWidth = Array.from(inner.children).reduce(
+            (width, child) => width + child.scrollWidth,
+            0,
+          );
+          const maxWidth = Number.parseFloat(style.maxWidth);
+          textWidth = Math.max(
+            textWidth,
+            Math.min(childrenWidth, Number.isFinite(maxWidth) ? maxWidth : Infinity),
+          );
+        }
       }
       // Subtract the visible width even during an animation. The content
       // sum already includes it; only the hidden text needs reserving.
@@ -417,6 +433,7 @@ function useLabelsOverflow(element: HTMLDivElement | null): boolean {
     }
     labelAnimationsRef.current.clear();
 
+    if (element?.closest("[data-composer-layout-transition]")) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     for (const [label, previousRect] of previousRects) {
@@ -449,7 +466,14 @@ function useLabelsOverflow(element: HTMLDivElement | null): boolean {
         { once: true },
       );
     }
-  }, [overflows]);
+  }, [overflows, element]);
+
+  useLayoutEffect(() => {
+    const shell = element?.closest('[data-slot="composer-shell"]');
+    if (!shell) return;
+    shell.addEventListener(COMPOSER_CONTEXT_LAYOUT_EVENT, measure);
+    return () => shell.removeEventListener(COMPOSER_CONTEXT_LAYOUT_EVENT, measure);
+  }, [element, measure]);
 
   useEffect(
     () => () => {
