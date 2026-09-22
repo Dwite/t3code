@@ -25,6 +25,20 @@ export function hasDesktopUpdateBlockingWork(thread: ThreadActivity): boolean {
   );
 }
 
+/** A ready empty catalog has no enabled environments that can block an update. */
+export function areDesktopUpdateEnvironmentsIdle(input: {
+  readonly catalogReady: boolean;
+  readonly environmentCount: number;
+  readonly snapshotsReady: boolean;
+  readonly hasBlockingWork: boolean;
+}): boolean {
+  return (
+    input.catalogReady &&
+    (input.environmentCount === 0 || input.snapshotsReady) &&
+    !input.hasBlockingWork
+  );
+}
+
 type SchedulerState = {
   readonly dialogVersion: string | null;
   readonly scheduledVersion: string | null;

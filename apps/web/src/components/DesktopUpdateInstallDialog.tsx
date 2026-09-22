@@ -6,7 +6,11 @@ import { Atom } from "effect/unstable/reactivity";
 
 import { environmentCatalog } from "../connection/catalog";
 import { desktopLocalBackendId } from "../connection/desktopLocal";
-import { desktopUpdateScheduler, hasDesktopUpdateBlockingWork } from "../desktopUpdateScheduler";
+import {
+  areDesktopUpdateEnvironmentsIdle,
+  desktopUpdateScheduler,
+  hasDesktopUpdateBlockingWork,
+} from "../desktopUpdateScheduler";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { allEnvironmentProjectSnapshotsReadyAtom } from "../state/shell";
 import { environmentThreadShells } from "../state/threads";
@@ -22,20 +26,28 @@ import {
 import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
 
-const agentsIdleAtom = Atom.make(
-  (get) =>
-    get(allEnvironmentProjectSnapshotsReadyAtom) &&
-    !get(environmentThreadShells.threadShellsAtom).some(hasDesktopUpdateBlockingWork),
-);
+const agentsIdleAtom = Atom.make((get) => {
+  const catalog = get(environmentCatalog.catalogValueAtom);
+  return areDesktopUpdateEnvironmentsIdle({
+    catalogReady: catalog.isReady,
+    environmentCount: catalog.entries.size,
+    snapshotsReady: get(allEnvironmentProjectSnapshotsReadyAtom),
+    hasBlockingWork: get(environmentThreadShells.threadShellsAtom).some(
+      hasDesktopUpdateBlockingWork,
+    ),
+  });
+});
 
 function allAgentsIdle(): boolean {
   if (!appAtomRegistry.get(agentsIdleAtom)) return false;
   const bridge = window.desktopBridge;
   if (!bridge) return false;
+  const catalog = appAtomRegistry.get(environmentCatalog.catalogValueAtom);
+  if (catalog.entries.size === 0) return true;
   // A local backend must not disappear from the safety check while its client
-  // connection is being registered (or has been disabled in the catalog).
+  // connection is being registered.
   try {
-    const entries = [...appAtomRegistry.get(environmentCatalog.catalogValueAtom).entries.values()];
+    const entries = [...catalog.entries.values()];
     return bridge
       .getLocalEnvironmentBootstraps()
       .every((backend) =>
@@ -67,10 +79,9 @@ function install(whenIdle: boolean) {
 
 function ScheduledUpdateWatcher({ installing }: { installing: boolean }) {
   const idle = useAtomValue(agentsIdleAtom);
-  const catalog = useAtomValue(environmentCatalog.catalogValueAtom);
   useEffect(() => {
-    if (idle && catalog.entries.size > 0 && !installing) void install(true);
-  }, [catalog, installing, idle]);
+    if (idle && !installing) void install(true);
+  }, [installing, idle]);
   return null;
 }
 

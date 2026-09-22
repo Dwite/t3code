@@ -272,6 +272,8 @@ function AboutVersionTitle() {
 function AboutVersionSection() {
   const updateState = useDesktopUpdateState();
   const [isChangingUpdateChannel, setIsChangingUpdateChannel] = useState(false);
+  const [isCheckingForUpdate, setIsCheckingForUpdate] = useState(false);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
 
   const hasDesktopBridge = typeof window !== "undefined" && Boolean(window.desktopBridge);
   const selectedUpdateChannel = updateState?.channel ?? "latest";
@@ -309,20 +311,26 @@ function AboutVersionSection() {
 
   const handleButtonClick = useCallback(async () => {
     const bridge = window.desktopBridge;
-    if (!bridge) return;
+    if (!bridge || isCheckingForUpdate || isDownloadingUpdate) return;
 
     const action = updateState ? resolveDesktopUpdateButtonAction(updateState) : "none";
 
     if (action === "download") {
-      void bridge.downloadUpdate().catch((error: unknown) => {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Could not download update",
-            description: error instanceof Error ? error.message : "Download failed.",
-          }),
-        );
-      });
+      setIsDownloadingUpdate(true);
+      void bridge
+        .downloadUpdate()
+        .catch((error: unknown) => {
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: "Could not download update",
+              description: error instanceof Error ? error.message : "Download failed.",
+            }),
+          );
+        })
+        .finally(() => {
+          setIsDownloadingUpdate(false);
+        });
       return;
     }
 
@@ -332,6 +340,7 @@ function AboutVersionSection() {
     }
 
     if (typeof bridge.checkForUpdate !== "function") return;
+    setIsCheckingForUpdate(true);
     void bridge
       .checkForUpdate()
       .then((result) => {
@@ -354,15 +363,20 @@ function AboutVersionSection() {
             description: error instanceof Error ? error.message : "Update check failed.",
           }),
         );
+      })
+      .finally(() => {
+        setIsCheckingForUpdate(false);
       });
-  }, [updateState]);
+  }, [isCheckingForUpdate, isDownloadingUpdate, updateState]);
 
   const action = updateState ? resolveDesktopUpdateButtonAction(updateState) : "none";
   const buttonTooltip = updateState ? getDesktopUpdateButtonTooltip(updateState) : null;
   const buttonDisabled =
-    action === "none"
+    isCheckingForUpdate ||
+    isDownloadingUpdate ||
+    (action === "none"
       ? !canCheckForUpdate(updateState)
-      : isDesktopUpdateButtonDisabled(updateState);
+      : isDesktopUpdateButtonDisabled(updateState));
 
   const actionLabel: Record<string, string> = { download: "Download", install: "Install" };
   const statusLabel: Record<string, string> = {

@@ -2,6 +2,7 @@ import type { DesktopUpdateState, OrchestrationSession } from "@t3tools/contract
 import { ThreadId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
+  areDesktopUpdateEnvironmentsIdle,
   createDesktopUpdateScheduler,
   hasDesktopUpdateBlockingWork,
 } from "./desktopUpdateScheduler";
@@ -58,6 +59,28 @@ function harness() {
 }
 
 describe("update activity guard", () => {
+  it("treats a ready empty environment catalog as idle", () => {
+    expect(
+      areDesktopUpdateEnvironmentsIdle({
+        catalogReady: true,
+        environmentCount: 0,
+        snapshotsReady: false,
+        hasBlockingWork: false,
+      }),
+    ).toBe(true);
+  });
+  it("waits for catalog readiness, non-empty snapshots, and blocking work", () => {
+    const input = {
+      catalogReady: true,
+      environmentCount: 1,
+      snapshotsReady: true,
+      hasBlockingWork: false,
+    };
+    expect(areDesktopUpdateEnvironmentsIdle({ ...input, catalogReady: false })).toBe(false);
+    expect(areDesktopUpdateEnvironmentsIdle({ ...input, snapshotsReady: false })).toBe(false);
+    expect(areDesktopUpdateEnvironmentsIdle({ ...input, hasBlockingWork: true })).toBe(false);
+    expect(areDesktopUpdateEnvironmentsIdle(input)).toBe(true);
+  });
   it("allows settled and unused threads", () => {
     expect(hasDesktopUpdateBlockingWork(idleThread)).toBe(false);
     for (const status of ["idle", "ready", "stopped", "interrupted", "error"] as const) {
