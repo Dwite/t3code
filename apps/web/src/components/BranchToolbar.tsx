@@ -397,7 +397,9 @@ function useLabelsOverflow(element: HTMLDivElement | null): boolean {
             (width, child) => width + child.scrollWidth,
             0,
           );
-          const maxWidth = Number.parseFloat(style.maxWidth);
+          const maxWidth = style.maxWidth.endsWith("px")
+            ? Number.parseFloat(style.maxWidth)
+            : Number.NaN;
           textWidth = Math.max(
             textWidth,
             Math.min(childrenWidth, Number.isFinite(maxWidth) ? maxWidth : Infinity),

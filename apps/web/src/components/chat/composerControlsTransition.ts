@@ -54,7 +54,13 @@ export function captureComposerControls(
   const controls = new Map<string, ReturnType<typeof captureControl>>();
   let precedingControl = "start";
   let controlIndex = 0;
-  for (const element of group?.querySelectorAll<HTMLElement>('button, [role="separator"]') ?? []) {
+  const elements = group
+    ? [
+        ...(group.matches('button, [role="separator"]') ? [group] : []),
+        ...group.querySelectorAll<HTMLElement>('button, [role="separator"]'),
+      ]
+    : [];
+  for (const element of elements) {
     const separator = element.matches('[role="separator"]');
     const key = separator
       ? `separator:${precedingControl}`
