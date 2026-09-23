@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  formatVideoTimestamp,
   imagePointFromClient,
   imageRegionBetween,
   imageRegionCitationName,
   imageRegionCrop,
   imageRegionPixels,
   isCitableImageRegion,
+  videoFrameCitationName,
 } from "./imageRegionCitation.ts";
 
 describe("image region selection", () => {
@@ -100,5 +102,19 @@ describe("imageRegionCitationName", () => {
   it("falls back when the source has no usable name", () => {
     expect(imageRegionCitationName("")).toBe("image region.png");
     expect(imageRegionCitationName(".png")).toBe("image region.png");
+  });
+});
+
+describe("video frame citations", () => {
+  it("formats positions like video controls", () => {
+    expect(formatVideoTimestamp(12.9)).toBe("0:12");
+    expect(formatVideoTimestamp(72)).toBe("1:12");
+    expect(formatVideoTimestamp(3725)).toBe("1:02:05");
+    expect(formatVideoTimestamp(-3)).toBe("0:00");
+  });
+
+  it("names the frame after its source and position", () => {
+    expect(videoFrameCitationName("clips/demo.mp4", 72.4)).toBe("demo at 1:12 region.png");
+    expect(videoFrameCitationName("", 5)).toBe("video at 0:05 region.png");
   });
 });

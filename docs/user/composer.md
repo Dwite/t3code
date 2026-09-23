@@ -101,6 +101,10 @@ Scroll to zoom in before selecting small details. `Escape` clears the selection 
 selecting, then closes the image. Images from sites that block browser access can't be cited; save
 the image and attach it instead.
 
+To cite a moment in a video, right-click the video and choose **Cite frame**, or choose **Cite** in
+the video preview. The video pauses and that frame opens for selecting a region; the crop's name
+includes the timestamp. `Escape` returns to the paused video.
+
 On mobile, touch and hold an image in the conversation or the file viewer and choose **Cite
 region**. On Android the image viewer's menu has it too. Drag over the part you mean, add an
 optional comment, and tap **Cite**. Mobile sends exactly the part you selected, without the

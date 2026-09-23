@@ -78,6 +78,17 @@ function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+/** A video frame is only an intermediate for the crop; JPEG encodes several times faster. */
+function canvasToStill(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (still) => (still ? resolve(still) : reject(new Error("The video frame could not be read."))),
+      "image/jpeg",
+      0.95,
+    );
+  });
+}
+
 /** Converts browser-decodable images, including SVG, into the clipboard's portable PNG format. */
 export async function readMediaPng(src: string): Promise<Blob> {
   const blob = await readMediaBlob(src);
@@ -99,6 +110,108 @@ export async function readMediaPng(src: string): Promise<Blob> {
       return canvasToPng(canvas);
     },
   );
+}
+
+const VIDEO_FRAME_TIMEOUT_MS = 15_000;
+
+function drawVideoFrame(video: HTMLVideoElement): Promise<Blob> {
+  const { videoWidth: width, videoHeight: height } = video;
+  if (width <= 0 || height <= 0) throw new Error("The video has no frame to cite.");
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Video citing is unavailable in this browser.");
+  context.drawImage(video, 0, 0, width, height);
+  return canvasToStill(canvas);
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result)), { once: true });
+    reader.addEventListener(
+      "error",
+      () => reject(new Error("The video frame could not be read.")),
+      {
+        once: true,
+      },
+    );
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Captures the frame at `seconds` as a data URL, which needs no revoking wherever the still ends
+ * up. The paused player on screen is exact and fast when the page may read its pixels; otherwise
+ * a separate CORS request loads the same moment from `source`, which needs a same-origin URL or a
+ * host that allows CORS.
+ */
+export async function readVideoFrame(
+  source: () => Promise<string>,
+  seconds: number,
+  shown?: HTMLVideoElement | null,
+): Promise<string> {
+  if (shown && shown.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    try {
+      return await blobToDataUrl(await drawVideoFrame(shown));
+    } catch {
+      // A cross-origin player taints the canvas; load a CORS copy of the moment instead.
+    }
+  }
+  const video = document.createElement("video");
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  const next = (event: "loadeddata" | "seeked") =>
+    new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("The video frame took too long to load. Try again."));
+      }, VIDEO_FRAME_TIMEOUT_MS);
+      const done = () => {
+        cleanup();
+        resolve();
+      };
+      const fail = () => {
+        cleanup();
+        reject(
+          new Error(
+            "The video could not be loaded for citing. The host may block browser access (CORS).",
+          ),
+        );
+      };
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        video.removeEventListener(event, done);
+        video.removeEventListener("error", fail);
+      };
+      video.addEventListener(event, done);
+      video.addEventListener("error", fail);
+    });
+  try {
+    const src = await source();
+    const loaded = next("loadeddata");
+    video.src = src;
+    await loaded;
+    if (video.currentTime !== seconds) {
+      const seeked = next("seeked");
+      video.currentTime = seconds;
+      await seeked;
+    }
+    try {
+      return await blobToDataUrl(await drawVideoFrame(video));
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === "SecurityError") {
+        throw new Error("The video's host blocks reading its frames.", { cause });
+      }
+      throw cause;
+    }
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+  }
 }
 
 /** Strokes outside `rect`, so the pixels inside stay exactly as the source had them. */

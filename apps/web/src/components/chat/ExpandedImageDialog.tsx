@@ -16,7 +16,9 @@ import {
   XIcon,
 } from "lucide-react";
 import {
+  formatVideoTimestamp,
   imageRegionCitationName,
+  videoFrameCitationName,
   type ImageRegion,
 } from "@t3tools/client-runtime/image-region-citation";
 import { Button } from "../ui/button";
@@ -29,7 +31,7 @@ import { useAssetUrlRefresh, useAssetUrlState } from "../../assets/assetUrls";
 import { useComposerHandleContext } from "../../composerHandleContext";
 import { OpenMediaLink } from "../media/OpenMediaLink";
 import { MediaActions, useMediaActionUrl, type MediaActionSource } from "../media/MediaActions";
-import { readMediaImageRegion } from "../media/mediaContent";
+import { readMediaImageRegion, readVideoFrame } from "../media/mediaContent";
 import { MediaVideoPlayer } from "../media/MediaVideoPlayer";
 import { isContextMenuOpen } from "../../contextMenuFallback";
 import {
@@ -124,7 +126,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
 
   // Citing sends a crop of the image to the composer, so it needs a composer and loaded pixels.
   const composerRef = useComposerHandleContext();
-  const [citeMode, setCiteMode] = useState(false);
+  const [citeMode, setCiteMode] = useState(preview.citeFrame !== undefined);
   const [pendingRegion, setPendingRegion] = useState<ImageRegion | null>(null);
   const [citedRegionsBySrc, setCitedRegionsBySrc] = useState<
     ReadonlyMap<string, ReadonlyArray<ImageRegion>>
@@ -133,19 +135,58 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
   const pendingRegionRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  // A video is cited through a still of the paused frame; the player stays mounted behind it.
+  const [frame, setFrame] = useState<{ readonly src: string; readonly seconds: number } | null>(
+    preview.citeFrame ?? null,
+  );
+  const [capturingFrame, setCapturingFrame] = useState(false);
+  const isVideo = item?.type === "video";
   const citableSrc =
-    composerRef !== null &&
-    item !== undefined &&
-    item.type !== "video" &&
-    item.src !== null &&
-    failedImageSrc !== item.src &&
-    !showingAccessibilityDetails
-      ? item.src
-      : null;
+    composerRef === null || item === undefined
+      ? null
+      : isVideo
+        ? (frame?.src ?? null)
+        : item.src !== null && failedImageSrc !== item.src && !showingAccessibilityDetails
+          ? item.src
+          : null;
+  const citeAvailable = isVideo ? composerRef !== null : citableSrc !== null;
   const selecting = citeMode && citableSrc !== null;
-  const toggleCiteMode = () => {
-    setCiteMode((current) => !current);
+  const stopCiting = () => {
+    setCiteMode(false);
+    setFrame(null);
     setPendingRegion(null);
+  };
+  const citeVideoFrame = async () => {
+    const video = popupRef.current?.querySelector("video");
+    if (!video || capturingFrame) return;
+    video.pause();
+    const seconds = video.currentTime;
+    setCapturingFrame(true);
+    try {
+      const still = await readVideoFrame(actionUrl, seconds, video);
+      setFrame({ src: still, seconds });
+      setCiteMode(true);
+    } catch (error) {
+      toastManager.add(
+        stackedThreadToast({
+          type: "error",
+          title: "Could not capture the frame",
+          description: error instanceof Error ? error.message : "The video could not be read.",
+        }),
+      );
+    } finally {
+      setCapturingFrame(false);
+    }
+  };
+  const toggleCiteMode = () => {
+    if (selecting) {
+      stopCiting();
+    } else if (isVideo) {
+      void citeVideoFrame();
+    } else {
+      setCiteMode(true);
+      setPendingRegion(null);
+    }
   };
   const citeRegion = async (region: ImageRegion, comment: string) => {
     if (!item || citableSrc === null) return;
@@ -163,8 +204,10 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
     const src = citableSrc;
     setCiting(true);
     try {
-      const file = await readMediaImageRegion(await actionUrl(), region, {
-        name: imageRegionCitationName(item.name),
+      const file = await readMediaImageRegion(frame ? frame.src : await actionUrl(), region, {
+        name: frame
+          ? videoFrameCitationName(item.name, frame.seconds)
+          : imageRegionCitationName(item.name),
         // The crop's outline matches the one the user drew.
         outlineColor: pendingRegionRef.current
           ? getComputedStyle(pendingRegionRef.current).borderTopColor
@@ -201,6 +244,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
   const navigateImage = useCallback((direction: -1 | 1) => {
     setImageOffset((current) => current + direction);
     setPendingRegion(null);
+    setFrame(null);
   }, []);
 
   // Closing the comment box removes the focused field, dropping focus to the page. The dialog
@@ -229,7 +273,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
     if (event.defaultPrevented || isContextMenuOpen() || event.target instanceof HTMLVideoElement)
       return;
     if (
-      citableSrc !== null &&
+      citeAvailable &&
       event.key.toLowerCase() === "c" &&
       !event.metaKey &&
       !event.ctrlKey &&
@@ -264,11 +308,13 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
       if (event.key !== "Escape" || event.isComposing || isContextMenuOpen()) return;
       event.preventDefault();
       event.stopPropagation();
-      // Each Escape backs out one step: the pending region, then region selection, then the dialog.
+      // Each Escape backs out one step: the pending region, then region selection (and a video's
+      // still frame), then the dialog.
       if (selecting && pendingRegion) {
         setPendingRegion(null);
       } else if (selecting) {
         setCiteMode(false);
+        setFrame(null);
       } else {
         onClose();
       }
@@ -279,6 +325,15 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
 
   if (!item) return null;
   const mediaLabel = item.type === "video" ? "video" : "image";
+  const citeOverlay =
+    selecting && citableSrc !== null ? (
+      <ImageRegionCiteLayer
+        cited={citedRegionsBySrc.get(citableSrc) ?? []}
+        pending={pendingRegion}
+        pendingRef={pendingRegionRef}
+        onSelect={setPendingRegion}
+      />
+    ) : undefined;
   const openOriginalLink =
     item.originalUrl && resolveExternalWebLinkHost(item.originalUrl) !== null ? (
       <OpenMediaLink originalUrl={item.originalUrl} />
@@ -338,7 +393,23 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
               <XIcon />
             </Button>
             {item.type === "video" ? (
-              <ExpandedVideo key={index} item={item} />
+              <>
+                {/* Hidden, not unmounted, so leaving the still returns to the paused position. */}
+                <div hidden={frame !== null}>
+                  <ExpandedVideo key={index} item={item} />
+                </div>
+                {frame ? (
+                  <ZoomableImage
+                    ref={zoomableImageRef}
+                    key={frame.src}
+                    src={frame.src}
+                    name={`${item.name} at ${formatVideoTimestamp(frame.seconds)}`}
+                    onError={() => setFailedImageSrc(frame.src)}
+                    selecting={selecting}
+                    overlay={citeOverlay}
+                  />
+                ) : null}
+              </>
             ) : showingAccessibilityDetails ? (
               accessibilityDetails ? (
                 <SnapShotAccessibilityData
@@ -363,16 +434,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
                 name={item.name}
                 onError={() => setFailedImageSrc(item.src)}
                 selecting={selecting}
-                overlay={
-                  selecting ? (
-                    <ImageRegionCiteLayer
-                      cited={citedRegionsBySrc.get(item.src) ?? []}
-                      pending={pendingRegion}
-                      pendingRef={pendingRegionRef}
-                      onSelect={setPendingRegion}
-                    />
-                  ) : undefined
-                }
+                overlay={citeOverlay}
               />
             )}
             <Popover
@@ -412,6 +474,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
             <div className="mt-2 flex max-w-[var(--media-width)] items-center justify-center gap-1.5 text-xs text-white/80">
               <span className="truncate" aria-live="polite" aria-atomic="true">
                 {item.name}
+                {frame ? ` at ${formatVideoTimestamp(frame.seconds)}` : ""}
                 {preview.images.length > 1 ? ` (${index + 1}/${preview.images.length})` : ""}
               </span>
               {accessibilityDetails && item.source ? (
@@ -436,7 +499,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
               ) : item.source ? (
                 <SnapShotContentsButton source={item.source} side="top" />
               ) : null}
-              {citableSrc !== null ? (
+              {citeAvailable ? (
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -444,6 +507,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
                         aria-pressed={selecting}
                         aria-keyshortcuts="C"
                         data-pressed={selecting ? "" : undefined}
+                        disabled={capturingFrame}
                         onClick={toggleCiteMode}
                         size="micro"
                         variant="overlay"
@@ -451,10 +515,16 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
                     }
                   >
                     <SquareDashedMousePointerIcon aria-hidden="true" />
-                    Cite
+                    {capturingFrame ? "Capturing…" : "Cite"}
                   </TooltipTrigger>
                   <TooltipPopup side="top">
-                    {selecting ? "Stop selecting (C)" : "Select a region to cite (C)"}
+                    {selecting
+                      ? isVideo
+                        ? "Back to the video (C)"
+                        : "Stop selecting (C)"
+                      : isVideo
+                        ? "Pause and cite a region of this frame (C)"
+                        : "Select a region to cite (C)"}
                   </TooltipPopup>
                 </Tooltip>
               ) : null}

@@ -15,7 +15,7 @@ import { readPreparedConnection } from "../../state/session";
 import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { downloadMedia, readMediaPng } from "./mediaContent";
+import { downloadMedia, readMediaPng, readVideoFrame } from "./mediaContent";
 
 export interface MediaActionSource {
   readonly kind: "image" | "video";
@@ -24,6 +24,8 @@ export interface MediaActionSource {
   readonly reference?: MediaReference;
   readonly asset?: { readonly environmentId: EnvironmentId; readonly resource: AssetResource };
   readonly onOpenFile?: () => void;
+  /** Receives a still of the paused frame, as a data URL, to cite a region from. */
+  readonly onCiteFrame?: (still: { readonly src: string; readonly seconds: number }) => void;
 }
 
 function mediaFileName(source: MediaActionSource): string {
@@ -70,7 +72,7 @@ function useMediaActions(source: MediaActionSource) {
       new ClipboardItem({ "image/png": actionUrl().then(readMediaPng) }),
     ]);
   }, [actionUrl]);
-  return { save, copyImage };
+  return { save, copyImage, actionUrl };
 }
 
 /** Adds source-aware actions and a tooltip to the existing media element without a layout wrapper. */
@@ -81,13 +83,13 @@ export function MediaActions({
   source: MediaActionSource;
   children: ReactElement;
 }) {
-  const { save, copyImage } = useMediaActions(source);
+  const { save, copyImage, actionUrl } = useMediaActions(source);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const menuOpen = useRef(false);
   const reference = source.reference;
   const tooltip = reference?.kind === "file" ? reference.path : (reference?.url ?? source.name);
 
-  const showMenu = async (position: { x: number; y: number }) => {
+  const showMenu = async (position: { x: number; y: number }, video: HTMLVideoElement | null) => {
     const api = readLocalApi();
     if (!api || menuOpen.current) return;
     menuOpen.current = true;
@@ -108,6 +110,9 @@ export function MediaActions({
           items.push({ id: "copy-relative-path", label: "Copy relative path" });
       } else if (reference?.kind === "url") {
         items.push({ id: "copy-url", label: "Copy URL" });
+      }
+      if (source.kind === "video" && source.onCiteFrame && video) {
+        items.push({ id: "cite-region", label: "Cite frame" });
       }
       if (source.onOpenFile) items.push({ id: "open-file", label: "Open in file viewer" });
       items.push({ id: "save", label: `Save ${noun}`, disabled: unavailable });
@@ -138,6 +143,14 @@ export function MediaActions({
         });
       } else if (action === "open-file") {
         source.onOpenFile?.();
+      } else if (action === "cite-region" && video && source.onCiteFrame) {
+        video.pause();
+        const seconds = video.currentTime;
+        progressToast = toastManager.add({ type: "loading", title: "Capturing frame…" });
+        const still = await readVideoFrame(actionUrl, seconds, video);
+        toastManager.close(progressToast);
+        progressToast = undefined;
+        source.onCiteFrame({ src: still, seconds });
       } else if (action === "save" || action === "copy-image") {
         progressToast = toastManager.add({
           type: "loading",
@@ -176,6 +189,7 @@ export function MediaActions({
             event.clientX === 0 && event.clientY === 0
               ? { x: bounds.left, y: bounds.bottom }
               : { x: event.clientX, y: event.clientY },
+            event.currentTarget.querySelector("video"),
           );
         }}
         onKeyDown={(event) => {
@@ -187,7 +201,10 @@ export function MediaActions({
           event.preventDefault();
           event.stopPropagation();
           const bounds = event.currentTarget.getBoundingClientRect();
-          void showMenu({ x: bounds.left, y: bounds.bottom });
+          void showMenu(
+            { x: bounds.left, y: bounds.bottom },
+            event.currentTarget.querySelector("video"),
+          );
         }}
       />
       <TooltipPopup variant="code">{tooltip}</TooltipPopup>
