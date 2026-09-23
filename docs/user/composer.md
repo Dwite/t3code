@@ -99,7 +99,12 @@ cite becomes its own image chip.
 
 Scroll to zoom in before selecting small details. `Escape` clears the selection first, then stops
 selecting, then closes the image. Images from sites that block browser access can't be cited; save
-the image and attach it instead. Mobile does not create image citations.
+the image and attach it instead.
+
+On mobile, touch and hold an image in the conversation or the file viewer and choose **Cite
+region**. On Android the image viewer's menu has it too. Drag over the part you mean, add an
+optional comment, and tap **Cite**. Mobile sends exactly the part you selected, without the
+surrounding outline the web and desktop apps add.
 
 ## Recall a sent prompt
 

@@ -6,7 +6,7 @@ import {
   isCitableImageRegion,
   type ImagePoint,
   type ImageRegion,
-} from "~/lib/imageRegionCitation";
+} from "@t3tools/client-runtime/image-region-citation";
 
 const REGION_BOX_CLASS_NAME =
   "pointer-events-none absolute rounded-[3px] border-2 border-primary bg-primary/10";

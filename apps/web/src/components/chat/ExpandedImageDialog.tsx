@@ -15,7 +15,10 @@ import {
   TextIcon,
   XIcon,
 } from "lucide-react";
-import { imageRegionCitationName, type ImageRegion } from "~/lib/imageRegionCitation";
+import {
+  imageRegionCitationName,
+  type ImageRegion,
+} from "@t3tools/client-runtime/image-region-citation";
 import { Button } from "../ui/button";
 import { Dialog, DialogPopup, DialogTitle } from "../ui/dialog";
 import { Popover, PopoverPopup } from "../ui/popover";

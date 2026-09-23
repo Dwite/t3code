@@ -66,6 +66,24 @@ export function isCitableImageRegion(region: ImageRegion, bounds: ClientBounds):
   );
 }
 
+/**
+ * The whole pixels a region covers, at least one in each direction. Clients that cannot draw an
+ * outline into the crop send exactly these pixels, so the crop itself is the marked part.
+ */
+export function imageRegionPixels(
+  region: ImageRegion,
+  image: { readonly width: number; readonly height: number },
+): PixelRect {
+  const start = (value: number, size: number) =>
+    Math.min(size - 1, Math.floor(clamp01(value) * size + PIXEL_EPSILON));
+  const end = (value: number, size: number) => Math.ceil(clamp01(value) * size - PIXEL_EPSILON);
+  const left = start(region.x, image.width);
+  const top = start(region.y, image.height);
+  const right = Math.max(left + 1, end(region.x + region.width, image.width));
+  const bottom = Math.max(top + 1, end(region.y + region.height, image.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
 export interface ImageRegionCrop {
   /** Source pixels copied into the crop. */
   readonly source: PixelRect;
@@ -85,13 +103,11 @@ export function imageRegionCrop(
   region: ImageRegion,
   image: { readonly width: number; readonly height: number },
 ): ImageRegionCrop {
-  const start = (value: number, size: number) =>
-    Math.min(size - 1, Math.floor(clamp01(value) * size + PIXEL_EPSILON));
-  const end = (value: number, size: number) => Math.ceil(clamp01(value) * size - PIXEL_EPSILON);
-  const left = start(region.x, image.width);
-  const top = start(region.y, image.height);
-  const right = Math.max(left + 1, end(region.x + region.width, image.width));
-  const bottom = Math.max(top + 1, end(region.y + region.height, image.height));
+  const pixels = imageRegionPixels(region, image);
+  const left = pixels.x;
+  const top = pixels.y;
+  const right = pixels.x + pixels.width;
+  const bottom = pixels.y + pixels.height;
   const padding = Math.round(
     Math.max(
       Math.max(right - left, bottom - top) * 0.25,
