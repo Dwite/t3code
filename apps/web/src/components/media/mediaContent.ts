@@ -1,4 +1,8 @@
-import { imageRegionCrop, type ImageRegion, type PixelRect } from "~/lib/imageRegionCitation";
+import {
+  imageRegionCrop,
+  type ImageRegion,
+  type PixelRect,
+} from "@t3tools/client-runtime/image-region-citation";
 
 /** Resolves web references without inheriting the desktop renderer's custom app scheme. */
 export function resolveProtocolRelativeMediaUrl(src: string): string {

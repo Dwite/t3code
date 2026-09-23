@@ -5,8 +5,9 @@ import {
   imageRegionBetween,
   imageRegionCitationName,
   imageRegionCrop,
+  imageRegionPixels,
   isCitableImageRegion,
-} from "./imageRegionCitation";
+} from "./imageRegionCitation.ts";
 
 describe("image region selection", () => {
   const bounds = { left: 100, top: 50, width: 400, height: 200 };
@@ -25,6 +26,20 @@ describe("image region selection", () => {
 
     expect(isCitableImageRegion(sliver, bounds)).toBe(false);
     expect(isCitableImageRegion(sliver, { ...bounds, width: 800, height: 400 })).toBe(true);
+  });
+});
+
+describe("imageRegionPixels", () => {
+  it("covers exactly the marked pixels without floating-point growth", () => {
+    expect(
+      imageRegionPixels({ x: 0.4, y: 0.5, width: 0.2, height: 0.1 }, { width: 1000, height: 800 }),
+    ).toEqual({ x: 400, y: 400, width: 200, height: 80 });
+  });
+
+  it("keeps at least one pixel for a region on the far edge", () => {
+    expect(
+      imageRegionPixels({ x: 1, y: 1, width: 0, height: 0 }, { width: 1000, height: 800 }),
+    ).toEqual({ x: 999, y: 799, width: 1, height: 1 });
   });
 });
 
