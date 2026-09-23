@@ -136,13 +136,32 @@ export function imageRegionCrop(
   };
 }
 
-/** Names the crop after its source, so the chip and the agent can tell where it came from. */
-export function imageRegionCitationName(sourceName: string): string {
+function fileStem(sourceName: string): string {
   const base = sourceName.split(/[\\/]/).pop() ?? "";
-  const stem = base
+  return base
     .replace(/\.[a-z0-9]{1,5}$/i, "")
     .trim()
     .slice(0, 80)
     .trim();
-  return `${stem || "image"} region.png`;
+}
+
+/** Names the crop after its source, so the chip and the agent can tell where it came from. */
+export function imageRegionCitationName(sourceName: string): string {
+  return `${fileStem(sourceName) || "image"} region.png`;
+}
+
+/** A playback position the way video controls show it: m:ss, or h:mm:ss past an hour. */
+export function formatVideoTimestamp(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secondsPart = String(total % 60).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${secondsPart}`
+    : `${minutes}:${secondsPart}`;
+}
+
+/** Names a cited video frame after its source and position, so the agent can find the moment. */
+export function videoFrameCitationName(sourceName: string, seconds: number): string {
+  return `${fileStem(sourceName) || "video"} at ${formatVideoTimestamp(seconds)} region.png`;
 }
