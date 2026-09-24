@@ -5464,6 +5464,16 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         for (const image of nextImages) URL.revokeObjectURL(image.previewUrl);
         return false;
       }
+      // A citation's chip and comment go through the live editor, so they must land in the
+      // draft the user cited from. A thread switch, a new question, or a state that refuses
+      // text while the crop was prepared cancels the citation instead.
+      if (
+        options?.citationComment !== undefined &&
+        (attachmentTargetKeyRef.current !== attachmentTargetKey || composerRefusesTextRef.current)
+      ) {
+        for (const image of nextImages) URL.revokeObjectURL(image.previewUrl);
+        return false;
+      }
       const storedImageIds = new Set(
         nextImages.length === 1 && nextImages[0]
           ? // Citing one region twice is two references, like quoting the same text twice.
@@ -5690,6 +5700,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     isComposerApprovalState ||
     pendingUserInputs.length > 0 ||
     projectSelectionRequired;
+  // Live refusal state, for a citation whose crop finishes preparing after the composer changed.
+  const composerRefusesTextRef = useRef(composerRefusesText);
+  composerRefusesTextRef.current = composerRefusesText;
   const insertComposerText = useCallback(
     (
       text: string,
