@@ -130,9 +130,17 @@ export function animateComposerControls(
     });
     layer.append(clone);
     const visibility = target.element.style.visibility;
+    const transitionProperty = target.element.style.transitionProperty;
+    // `transition-all` also transitions visibility: the real button would
+    // remain visible beside its moving copy, then disappear at cleanup.
+    target.element.style.transitionProperty = "none";
     target.element.style.visibility = "hidden";
     restore.push(() => {
       target.element.style.visibility = visibility;
+      // Commit the visibility handoff before restoring the button's own CSS
+      // transitions, so the next geometry capture sees the real control.
+      void getComputedStyle(target.element).visibility;
+      target.element.style.transitionProperty = transitionProperty;
     });
     const animation = clone.animate(
       [
