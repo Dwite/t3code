@@ -4324,14 +4324,20 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             composerFilesRef.current.length -
             restoredFileCount,
         );
-        const pending = entry.attachments.filter((attachment) => {
-          if (existingIds.has(attachment.id)) return false;
-          if (isReferenced(attachment)) return true;
+        const unreferenced = entry.attachments.filter((attachment) => {
+          if (existingIds.has(attachment.id) || isReferenced(attachment)) return false;
           const key = dedupKey(attachment);
           if (takenDedupKeys.has(key)) return false;
           takenDedupKeys.add(key);
           return true;
         });
+        // Referenced images come first so a chip keeps its attachment when slots run out.
+        const pending = [
+          ...entry.attachments.filter(
+            (attachment) => !existingIds.has(attachment.id) && isReferenced(attachment),
+          ),
+          ...unreferenced,
+        ];
         // Anything past the attachment limit cannot be restored. The entry is
         // already out of the queue, so report the overflow by name instead of
         // discarding it silently.
