@@ -4332,7 +4332,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         unrestoredImageNames = pending.slice(capacity).map((attachment) => attachment.name);
         const restoredImages = hydrateImagesFromPersisted(pending.slice(0, capacity));
         if (restoredImages.length > 0) {
-          addComposerDraftImages(composerDraftTarget, restoredImages);
+          // The entry's images were distinct attachments when stashed; two citations of one
+          // region share a dedup key, and each has its own chip in the restored prompt.
+          addComposerDraftImages(composerDraftTarget, restoredImages, { allowDuplicates: true });
         }
       }
 
