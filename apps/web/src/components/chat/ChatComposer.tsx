@@ -4303,10 +4303,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       let unrestoredImageNames: string[] = [];
       if (entry.attachments.length > 0) {
         const existingIds = new Set(composerImagesRef.current.map((image) => image.id));
-        // The draft store also dedupes by mimeType+sizeBytes+name, so filter
-        // on the same key here. Counting a duplicate against capacity would
-        // burn a slot the store then refuses to fill, pushing a genuinely
-        // unique image into the overflow list for nothing.
+        // A chip in the restored prompt points at its own attachment, such as one of two
+        // citations of the same region, so that attachment comes back even when the draft
+        // already holds an identical image. Unreferenced images still skip one the draft
+        // already has by mimeType+sizeBytes+name.
+        const referencedIds = new Set(collectInlineContextIds(restoredPrompt));
         const existingDedupKeys = new Set(
           composerImagesRef.current.map(
             (image) => `${image.mimeType}\0${image.sizeBytes}\0${image.name}`,
@@ -4322,9 +4323,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         const pending = entry.attachments.filter(
           (attachment) =>
             !existingIds.has(attachment.id) &&
-            !existingDedupKeys.has(
-              `${attachment.mimeType}\0${attachment.sizeBytes}\0${attachment.name}`,
-            ),
+            (referencedIds.has(toKindScopedComposerContextId("image", attachment.id)) ||
+              !existingDedupKeys.has(
+                `${attachment.mimeType}\0${attachment.sizeBytes}\0${attachment.name}`,
+              )),
         );
         // Anything past the attachment limit cannot be restored. The entry is
         // already out of the queue, so report the overflow by name instead of
