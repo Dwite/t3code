@@ -3,13 +3,7 @@ import { ACTIVE_THREAD_SORT_OPTIONS } from "@t3tools/client-runtime/state/shared
 import type { MenuAction } from "@react-native-menu/menu";
 import { useCallback, useMemo } from "react";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
-import { useThreadListV2Enabled } from "../threads/use-thread-list-v2-enabled";
 import { MaterialThreadListToolbar } from "./MaterialThreadListToolbar";
-import {
-  hasCustomHomeListOptions,
-  PROJECT_SORT_OPTIONS,
-  THREAD_SORT_OPTIONS,
-} from "./home-list-options";
 import type { HomeHeaderProps } from "./HomeHeader.types";
 
 export type { HomeHeaderEnvironment } from "./HomeHeader.types";
@@ -18,19 +12,15 @@ function checkedMenuState(checked: boolean) {
   return checked ? ("on" as const) : undefined;
 }
 
-/** Android thread-list controls. Active sorting uses the shared server preference;
- * legacy project and thread sort controls retain their device-local behavior. */
+/** Android thread-list controls. Filters stay local to this view; active
+ * sorting follows the preference shared through the connected environments. */
 export function HomeHeader(props: HomeHeaderProps) {
-  const threadListV2Enabled = useThreadListV2Enabled();
   const { order, setOrder, available } = useActiveThreadSort();
-  const hasCustomListOptions = threadListV2Enabled
-    ? props.selectedEnvironmentId !== null ||
-      props.selectedProjectKey !== null ||
-      order !== "manual"
-    : hasCustomHomeListOptions(props);
+  const hasCustomListOptions =
+    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null || order !== "manual";
   const menuActions = useMemo<MenuAction[]>(
     () => [
-      ...(threadListV2Enabled && available
+      ...(available
         ? [
             {
               id: "active-sort",
@@ -79,39 +69,14 @@ export function HomeHeader(props: HomeHeaderProps) {
               ],
             },
           ] satisfies MenuAction[])),
-      ...(threadListV2Enabled
-        ? []
-        : ([
-            {
-              id: "project-sort",
-              title: "Sort projects",
-              subactions: PROJECT_SORT_OPTIONS.map((option) => ({
-                id: `project-sort:${option.value}`,
-                title: option.label,
-                state: checkedMenuState(props.projectSortOrder === option.value),
-              })),
-            },
-            {
-              id: "thread-sort",
-              title: "Sort threads",
-              subactions: THREAD_SORT_OPTIONS.map((option) => ({
-                id: `thread-sort:${option.value}`,
-                title: option.label,
-                state: checkedMenuState(props.threadSortOrder === option.value),
-              })),
-            },
-          ] satisfies MenuAction[])),
     ],
     [
       order,
       available,
       props.environments,
-      props.projectSortOrder,
       props.projects,
       props.selectedEnvironmentId,
       props.selectedProjectKey,
-      props.threadSortOrder,
-      threadListV2Enabled,
     ],
   );
   const handleMenuAction = useCallback(
@@ -120,7 +85,7 @@ export function HomeHeader(props: HomeHeaderProps) {
       const activeSort = ACTIVE_THREAD_SORT_OPTIONS.find(
         (option) => id === `active-sort:${option.value}`,
       );
-      if (threadListV2Enabled && available && activeSort) {
+      if (available && activeSort) {
         setOrder(activeSort.value);
         return;
       }
@@ -152,22 +117,8 @@ export function HomeHeader(props: HomeHeaderProps) {
         }
         return;
       }
-
-      const projectSort = PROJECT_SORT_OPTIONS.find(
-        (option) => id === `project-sort:${option.value}`,
-      );
-      if (projectSort) {
-        props.onProjectSortOrderChange(projectSort.value);
-        return;
-      }
-
-      const threadSort = THREAD_SORT_OPTIONS.find((option) => id === `thread-sort:${option.value}`);
-      if (threadSort) {
-        props.onThreadSortOrderChange(threadSort.value);
-        return;
-      }
     },
-    [props, threadListV2Enabled, available, setOrder],
+    [props, available, setOrder],
   );
 
   return (
