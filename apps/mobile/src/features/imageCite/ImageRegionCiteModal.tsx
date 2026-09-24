@@ -7,7 +7,7 @@ import {
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { normalizeNativeMarkdownUrl } from "@t3tools/mobile-markdown-text/links";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -235,11 +235,9 @@ export function ImageRegionCiteModal(props: {
   const [region, setRegion] = useState<ImageRegion | null>(null);
   const [comment, setComment] = useState("");
   const [citing, setCiting] = useState(false);
-  // Closing mid-crop cancels the citation; the crop may still finish after the modal is gone.
-  const closedRef = useRef(false);
+  // The crop is local and brief, so closing waits for it; a finished crop never outlives the modal.
   const close = () => {
-    closedRef.current = true;
-    props.onClose();
+    if (!citing) props.onClose();
   };
 
   const cite = async () => {
@@ -251,7 +249,6 @@ export function ImageRegionCiteModal(props: {
         region,
         name: imageRegionCitationName(props.source.name),
       });
-      if (closedRef.current) return;
       const draftKey = scopedThreadKey(props.environmentId, props.threadId);
       if (!insertComposerDraftImageCitation(draftKey, attachment, comment)) {
         Alert.alert(
@@ -261,9 +258,8 @@ export function ImageRegionCiteModal(props: {
         return;
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      close();
+      props.onClose();
     } catch (cause) {
-      if (closedRef.current) return;
       Alert.alert("Could not cite region", cause instanceof Error ? cause.message : "Try again.");
     } finally {
       setCiting(false);
@@ -281,6 +277,7 @@ export function ImageRegionCiteModal(props: {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel"
+              disabled={citing}
               onPress={close}
               className="min-h-11 min-w-11 items-center justify-center"
             >
