@@ -140,6 +140,8 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
     preview.citeFrame ?? null,
   );
   const [capturingFrame, setCapturingFrame] = useState(false);
+  // Navigation bumps this, so a capture still pending for the previous item is dropped.
+  const frameCaptureRef = useRef(0);
   const isVideo = item?.type === "video";
   const citableSrc =
     composerRef === null || item === undefined
@@ -161,12 +163,15 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
     if (!video || capturingFrame) return;
     video.pause();
     const seconds = video.currentTime;
+    const capture = ++frameCaptureRef.current;
     setCapturingFrame(true);
     try {
       const still = await readVideoFrame(actionUrl, seconds, video);
+      if (capture !== frameCaptureRef.current) return;
       setFrame({ src: still, seconds });
       setCiteMode(true);
     } catch (error) {
+      if (capture !== frameCaptureRef.current) return;
       toastManager.add(
         stackedThreadToast({
           type: "error",
@@ -175,7 +180,7 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
         }),
       );
     } finally {
-      setCapturingFrame(false);
+      if (capture === frameCaptureRef.current) setCapturingFrame(false);
     }
   };
   const toggleCiteMode = () => {
@@ -245,9 +250,11 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
   };
 
   const navigateImage = useCallback((direction: -1 | 1) => {
+    frameCaptureRef.current += 1;
     setImageOffset((current) => current + direction);
     setPendingRegion(null);
     setFrame(null);
+    setCapturingFrame(false);
   }, []);
 
   // Closing the comment box removes the focused field, dropping focus to the page. The dialog
