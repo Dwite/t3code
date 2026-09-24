@@ -8,6 +8,7 @@ import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime"
 import type { AssetResource, ContextMenuItem, EnvironmentId } from "@t3tools/contracts";
 import { useCallback, useRef, useState, type ReactElement } from "react";
 
+import { useComposerHandleContext } from "../../composerHandleContext";
 import { writeTextToClipboard } from "../../hooks/useCopyToClipboard";
 import { readLocalApi } from "../../localApi";
 import { assetEnvironment } from "../../state/assets";
@@ -84,6 +85,7 @@ export function MediaActions({
   children: ReactElement;
 }) {
   const { save, copyImage, actionUrl } = useMediaActions(source);
+  const composerRef = useComposerHandleContext();
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const menuOpen = useRef(false);
   const reference = source.reference;
@@ -111,7 +113,8 @@ export function MediaActions({
       } else if (reference?.kind === "url") {
         items.push({ id: "copy-url", label: "Copy URL" });
       }
-      if (source.kind === "video" && source.onCiteFrame && video) {
+      // A frame is only worth capturing when a mounted composer can take the citation.
+      if (source.kind === "video" && source.onCiteFrame && video && composerRef?.current) {
         items.push({ id: "cite-region", label: "Cite frame" });
       }
       if (source.onOpenFile) items.push({ id: "open-file", label: "Open in file viewer" });
