@@ -18,6 +18,8 @@ function checkedMenuState(checked: boolean) {
   return checked ? ("on" as const) : undefined;
 }
 
+/** Android thread-list controls. Active sorting uses the shared server preference;
+ * legacy project and thread sort controls retain their device-local behavior. */
 export function HomeHeader(props: HomeHeaderProps) {
   const threadListV2Enabled = useThreadListV2Enabled();
   const { order, setOrder, available } = useActiveThreadSort();

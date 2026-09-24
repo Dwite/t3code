@@ -21,6 +21,8 @@ import type { HomeHeaderProps } from "./HomeHeader.types";
 
 export type { HomeHeaderEnvironment } from "./HomeHeader.types";
 
+/** Keeps the native search toolbar and the older iOS toolbar on the same
+ * filter and sort choices, including the server-backed active-thread order. */
 export function HomeHeader(props: HomeHeaderProps) {
   const searchBarRef = useRef<SearchBarCommands>(null);
   const iconColor = useUniwindTheme()["--color-icon"];

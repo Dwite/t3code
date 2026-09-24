@@ -34,6 +34,8 @@ export interface HomeListFilterMenu {
   readonly items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu>;
 }
 
+/** Builds the menu shared by native Home and sidebar headers. Legacy sort
+ * controls and active-thread sorting are separate so neither offers ignored choices. */
 export function buildHomeListFilterMenu(props: {
   readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
   readonly projects: ReadonlyArray<HomeListFilterMenuProject>;

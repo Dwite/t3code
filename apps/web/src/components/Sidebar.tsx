@@ -2150,6 +2150,8 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   );
 });
 
+/** Thread navigation across connected environments. Active sorting is shared
+ * with native clients; pinned, snoozed, and settled sections keep their own order. */
 export default function Sidebar() {
   const projects = useProjects();
   const projectOrder = useUiStateStore((store) => store.projectOrder);

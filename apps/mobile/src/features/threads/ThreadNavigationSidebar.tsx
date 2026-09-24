@@ -150,6 +150,8 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
   );
 }
 
+/** Sidebar list and controls for split-view navigation. Shares the active sort
+ * preference with Home while retaining its own project scope and search query. */
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {

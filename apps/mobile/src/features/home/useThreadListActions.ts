@@ -229,6 +229,8 @@ function useConfirmDeleteThread(
   );
 }
 
+/** Shared actions for Home, the sidebar, and the arrangement sheet. Rechecks
+ * server support and the current sort mode before writing manual order keys. */
 export function useThreadListActions(): {
   readonly archiveThread: (thread: EnvironmentThreadShell) => void;
   readonly confirmDeleteThread: (thread: EnvironmentThreadShell) => void;

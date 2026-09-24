@@ -220,6 +220,8 @@ function HomeTopContentSpacer() {
 
 /* ─── Main screen ────────────────────────────────────────────────────── */
 
+/** Home thread list, including scoped search and parked-thread shelves.
+ * Message sorting changes only active rows and suppresses manual move plans. */
 export function HomeScreen(props: HomeScreenProps) {
   const [groupDisplayStates, setGroupDisplayStates] = useState<
     ReadonlyMap<string, HomeGroupDisplayState>

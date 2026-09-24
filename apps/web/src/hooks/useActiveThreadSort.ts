@@ -8,6 +8,10 @@ import { environmentServerConfigsAtom, serverEnvironment } from "../state/server
 import { useEnvironments } from "../state/environments";
 import { useAtomCommand } from "../state/use-atom-command";
 
+/** Reads the shared sort preference and writes changes to connected capable servers.
+ * With no live target, cached settings preserve the visible order but saving is disabled.
+ * Partial write failures are reported so clients do not mistake them for a completed sync.
+ */
 export function useActiveThreadSort() {
   const configs = useAtomValue(environmentServerConfigsAtom);
   const { environments } = useEnvironments();

@@ -147,6 +147,8 @@ function DragHandle(props: {
   );
 }
 
+/** Shows the same section order as the thread list. Active placement is disabled
+ * in message mode so a drag cannot overwrite the saved configured arrangement. */
 export function ThreadArrangementSheet(props: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const threads = useAtomValue(environmentThreadShells.threadShellsAtom);
