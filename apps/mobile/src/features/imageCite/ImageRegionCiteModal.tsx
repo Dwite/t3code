@@ -7,7 +7,7 @@ import {
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { normalizeNativeMarkdownUrl } from "@t3tools/mobile-markdown-text/links";
 import * as Haptics from "expo-haptics";
-import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -235,6 +235,12 @@ export function ImageRegionCiteModal(props: {
   const [region, setRegion] = useState<ImageRegion | null>(null);
   const [comment, setComment] = useState("");
   const [citing, setCiting] = useState(false);
+  // Closing mid-crop cancels the citation; the crop may still finish after the modal is gone.
+  const closedRef = useRef(false);
+  const close = () => {
+    closedRef.current = true;
+    props.onClose();
+  };
 
   const cite = async () => {
     if (!image || !region || citing) return;
@@ -245,6 +251,7 @@ export function ImageRegionCiteModal(props: {
         region,
         name: imageRegionCitationName(props.source.name),
       });
+      if (closedRef.current) return;
       const draftKey = scopedThreadKey(props.environmentId, props.threadId);
       if (!insertComposerDraftImageCitation(draftKey, attachment, comment)) {
         Alert.alert(
@@ -254,8 +261,9 @@ export function ImageRegionCiteModal(props: {
         return;
       }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      props.onClose();
+      close();
     } catch (cause) {
+      if (closedRef.current) return;
       Alert.alert("Could not cite region", cause instanceof Error ? cause.message : "Try again.");
     } finally {
       setCiting(false);
@@ -263,12 +271,7 @@ export function ImageRegionCiteModal(props: {
   };
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={props.onClose}
-    >
+    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={close}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardAvoidingView automaticOffset behavior="padding" className="flex-1 bg-black">
           <View
@@ -278,7 +281,7 @@ export function ImageRegionCiteModal(props: {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Cancel"
-              onPress={props.onClose}
+              onPress={close}
               className="min-h-11 min-w-11 items-center justify-center"
             >
               <SymbolView name="xmark" size={20} tintColor="#ffffff" type="monochrome" />
