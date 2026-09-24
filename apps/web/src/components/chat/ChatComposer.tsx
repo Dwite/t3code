@@ -1271,9 +1271,10 @@ export interface ChatComposerHandle {
   ) => boolean;
   /**
    * Attach a cropped image region with its chip at the caret, followed by the comment as prose.
+   * The draft is held while `crop` runs, so a send or stash waits for the citation.
    * Resolves false when the composer cannot take text or refuses the attachment.
    */
-  citeImageRegion: (file: File, comment: string) => Promise<boolean>;
+  citeImageRegion: (crop: () => Promise<File>, comment: string) => Promise<boolean>;
   openModelPicker: () => void;
   toggleModelPicker: () => void;
   openControl: (command: KeybindingCommand) => void;
@@ -3812,7 +3813,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         event?.preventDefault();
         toastManager.add({
           type: "info",
-          title: "Still bringing a pasted attachment into this message.",
+          title: "Still adding an attachment to this message.",
           description: "Send again once its chip resolves.",
         });
         return;
@@ -4428,12 +4429,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   );
 
   const stashCurrentPrompt = useCallback(async () => {
-    // Stashing clears the draft. A pasted attachment still downloading would then land in the
-    // emptied composer instead of travelling with the entry it belongs to.
+    // Stashing clears the draft. An attachment still arriving (a pasted file downloading, a cited
+    // region cropping) would then land in the emptied composer instead of travelling with the
+    // entry it belongs to.
     if (pendingDraftWork.has(attachmentTargetKeyRef.current)) {
       toastManager.add({
         type: "info",
-        title: "Still bringing a pasted attachment into this message.",
+        title: "Still adding an attachment to this message.",
         description: "Stash again once its chip resolves.",
       });
       return;
@@ -5976,10 +5978,18 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           { ensureLeadingBoundary: true, citationCommentAnchor: sourceAnchor },
         ),
       // Checked before the crop is attached, so a refused cite never strands an attachment.
-      citeImageRegion: (file, comment) =>
-        composerRefusesText
-          ? Promise.resolve(false)
-          : addComposerAttachments([file], { citationComment: comment }),
+      citeImageRegion: async (crop, comment) => {
+        if (composerRefusesText) return false;
+        // Held like a pasted attachment's download, so a send or stash waits for the citation
+        // instead of leaving it to land in an emptied or already-sent draft.
+        const draftKey = attachmentTargetKey;
+        pendingDraftWork.begin(draftKey);
+        try {
+          return await addComposerAttachments([await crop()], { citationComment: comment });
+        } finally {
+          pendingDraftWork.end(draftKey);
+        }
+      },
       openModelPicker,
       toggleModelPicker: () => {
         if (isComposerModelPickerOpen) {

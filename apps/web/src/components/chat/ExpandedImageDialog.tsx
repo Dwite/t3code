@@ -158,16 +158,16 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
       return;
     }
     const src = citableSrc;
+    const name = imageRegionCitationName(item.name);
+    // The crop's outline matches the one the user drew.
+    const outlineColor = pendingRegionRef.current
+      ? getComputedStyle(pendingRegionRef.current).borderTopColor
+      : "";
     setCiting(true);
     try {
-      const file = await readMediaImageRegion(await actionUrl(), region, {
-        name: imageRegionCitationName(item.name),
-        // The crop's outline matches the one the user drew.
-        outlineColor: pendingRegionRef.current
-          ? getComputedStyle(pendingRegionRef.current).borderTopColor
-          : "",
-      });
-      if (!(await composer.citeImageRegion(file, comment))) {
+      const crop = async () =>
+        readMediaImageRegion(await actionUrl(), region, { name, outlineColor });
+      if (!(await composer.citeImageRegion(crop, comment))) {
         toastManager.add(
           stackedThreadToast({
             type: "warning",
