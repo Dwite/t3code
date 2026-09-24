@@ -102,6 +102,7 @@ function RegionSelector(props: {
 }) {
   const [frame, setFrame] = useState<Size | null>(null);
   const [natural, setNatural] = useState<Size | null>(null);
+  const [failed, setFailed] = useState(false);
   const fitted = frame && natural ? containedRect(natural, frame) : null;
   const width = fitted?.width ?? 0;
   const height = fitted?.height ?? 0;
@@ -177,6 +178,7 @@ function RegionSelector(props: {
             height: event.nativeEvent.source.height,
           })
         }
+        onError={() => setFailed(true)}
         style={StyleSheet.absoluteFill}
       />
       {fitted ? (
@@ -212,8 +214,14 @@ function RegionSelector(props: {
           </View>
         </GestureDetector>
       ) : (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#ffffff" />
+        <View className="flex-1 items-center justify-center px-6">
+          {failed ? (
+            <Text className="text-center text-white/80">
+              This image could not be opened for citing.
+            </Text>
+          ) : (
+            <ActivityIndicator color="#ffffff" />
+          )}
         </View>
       )}
     </View>
