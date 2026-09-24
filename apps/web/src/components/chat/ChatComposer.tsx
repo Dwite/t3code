@@ -4305,14 +4305,18 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         const existingIds = new Set(composerImagesRef.current.map((image) => image.id));
         // A chip in the restored prompt points at its own attachment, such as one of two
         // citations of the same region, so that attachment comes back even when the draft
-        // already holds an identical image. Unreferenced images still skip one the draft
-        // already has by mimeType+sizeBytes+name.
+        // already holds an identical image. An unreferenced image is skipped when the draft,
+        // a referenced image, or an earlier unreferenced one already has its
+        // mimeType+sizeBytes+name, the key the store dedupes by.
+        const dedupKey = (image: { mimeType: string; sizeBytes: number; name: string }) =>
+          `${image.mimeType}\0${image.sizeBytes}\0${image.name}`;
         const referencedIds = new Set(collectInlineContextIds(restoredPrompt));
-        const existingDedupKeys = new Set(
-          composerImagesRef.current.map(
-            (image) => `${image.mimeType}\0${image.sizeBytes}\0${image.name}`,
-          ),
-        );
+        const isReferenced = (attachment: { id: string }) =>
+          referencedIds.has(toKindScopedComposerContextId("image", attachment.id));
+        const takenDedupKeys = new Set([
+          ...composerImagesRef.current.map(dedupKey),
+          ...entry.attachments.filter(isReferenced).map(dedupKey),
+        ]);
         const capacity = Math.max(
           0,
           PROVIDER_SEND_TURN_MAX_ATTACHMENTS -
@@ -4320,22 +4324,21 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
             composerFilesRef.current.length -
             restoredFileCount,
         );
-        const pending = entry.attachments.filter(
-          (attachment) =>
-            !existingIds.has(attachment.id) &&
-            (referencedIds.has(toKindScopedComposerContextId("image", attachment.id)) ||
-              !existingDedupKeys.has(
-                `${attachment.mimeType}\0${attachment.sizeBytes}\0${attachment.name}`,
-              )),
-        );
+        const pending = entry.attachments.filter((attachment) => {
+          if (existingIds.has(attachment.id)) return false;
+          if (isReferenced(attachment)) return true;
+          const key = dedupKey(attachment);
+          if (takenDedupKeys.has(key)) return false;
+          takenDedupKeys.add(key);
+          return true;
+        });
         // Anything past the attachment limit cannot be restored. The entry is
         // already out of the queue, so report the overflow by name instead of
         // discarding it silently.
         unrestoredImageNames = pending.slice(capacity).map((attachment) => attachment.name);
         const restoredImages = hydrateImagesFromPersisted(pending.slice(0, capacity));
         if (restoredImages.length > 0) {
-          // The entry's images were distinct attachments when stashed; two citations of one
-          // region share a dedup key, and each has its own chip in the restored prompt.
+          // Deduped above; the store's own dedup would drop a referenced citation's twin.
           addComposerDraftImages(composerDraftTarget, restoredImages, { allowDuplicates: true });
         }
       }
