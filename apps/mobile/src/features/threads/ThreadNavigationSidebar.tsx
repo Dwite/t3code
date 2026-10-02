@@ -1,5 +1,6 @@
 import { ACTIVE_THREAD_SORT_OPTIONS } from "@t3tools/client-runtime/state/shared-settings";
 import { useActiveThreadSort } from "./use-active-thread-sort";
+import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { computeThreadMoveAvailability } from "./threadOrder";
 import type {
@@ -15,9 +16,9 @@ import type { MenuAction } from "@react-native-menu/menu";
 import { useAtomValue } from "@effect/atom-react";
 import { type EnvironmentId, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LayoutChangeEvent } from "react-native";
+import type { LayoutChangeEvent, TextInputInstance } from "react-native";
 import { Platform, StyleSheet, TextInput, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchBarCommands } from "react-native-screens";
@@ -52,7 +53,7 @@ import {
 } from "../home/WorkspaceConnectionTitle";
 import { SidebarHeaderActions } from "./sidebar-header-actions";
 import { MaterialThreadListToolbar } from "../home/MaterialThreadListToolbar";
-import { useMaterialToolbarHeight } from "../../components/useMaterialToolbarHeight";
+import { useMaterialToolbarLayout } from "../../components/useMaterialToolbarLayout";
 import { useMaterialFabScroll } from "../home/MaterialFabScrollContext";
 import { SidebarFilterButton } from "./sidebar-filter-button";
 import { createSidebarHeaderItems } from "./sidebar-native-header-items";
@@ -137,14 +138,15 @@ function ThreadNavigationSidebarPane(
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
+  const { fabClearance } = useAndroidControlSizing();
   const projects = useProjects();
   const threads = useThreadShells();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
-  const searchInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<TextInputInstance>(null);
   const searchBarRef = useRef<SearchBarCommands>(null);
   const openSwipeableRef = useRef<SwipeableMethods | null>(null);
-  const sidebarScrollGesture = useMemo(() => Gesture.Native(), []);
+  const sidebarScrollGesture = useNativeGesture();
   const {
     archiveThread,
     confirmDeleteThread,
@@ -154,6 +156,7 @@ function ThreadNavigationSidebarPane(
     unsettleThread,
     pinThread,
     unpinThread,
+    setThreadAutoSettle,
     moveThread,
     renameThread,
     regenerateThreadTitle,
@@ -333,6 +336,15 @@ function ThreadNavigationSidebarPane(
     const supported = new Set<EnvironmentId>();
     for (const [environmentId, config] of serverConfigs) {
       if (config.environment.capabilities.threadPinning === true) {
+        supported.add(environmentId);
+      }
+    }
+    return supported;
+  }, [serverConfigs]);
+  const autoSettleOptOutEnvironmentIds = useMemo(() => {
+    const supported = new Set<EnvironmentId>();
+    for (const [environmentId, config] of serverConfigs) {
+      if (config.environment.capabilities.threadAutoSettleOptOut === true) {
         supported.add(environmentId);
       }
     }
@@ -640,14 +652,14 @@ function ThreadNavigationSidebarPane(
   );
 
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
-  const materialToolbarHeight = useMaterialToolbarHeight();
+  const { height, paddingTop, paddingBottom } = useMaterialToolbarLayout();
   // The sticky header (title row, search field, optional connection status)
   // is measured so the list inset always matches its real height — no
   // hardcoded per-variant constants.
   const stickyHeaderHeight =
     measuredHeaderHeight ??
     (Platform.OS === "android"
-      ? Math.max(insets.top, 12) + materialToolbarHeight + 8
+      ? paddingTop + height + paddingBottom
       : insets.top + SIDEBAR_STICKY_HEADER_HEIGHT);
   const topListInset = stickyHeaderHeight + 6;
   const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
@@ -813,6 +825,7 @@ function ThreadNavigationSidebarPane(
               onSettleThread={settleThread}
               snoozeSupported={snoozeEnvironmentIds.has(thread.environmentId)}
               pinningSupported={pinningEnvironmentIds.has(thread.environmentId)}
+              autoSettleOptOutSupported={autoSettleOptOutEnvironmentIds.has(thread.environmentId)}
               reorderSupported={
                 item.item.pinned
                   ? pinReorderEnvironmentIds.has(thread.environmentId)
@@ -825,6 +838,7 @@ function ThreadNavigationSidebarPane(
               onUnsettleThread={unsettleThread}
               onPinThread={pinThread}
               onUnpinThread={unpinThread}
+              onSetThreadAutoSettle={setThreadAutoSettle}
               onMoveThread={moveThread}
               onSwipeableClose={handleSwipeableClose}
               onSwipeableWillOpen={handleSwipeableWillOpen}
@@ -876,6 +890,8 @@ function ThreadNavigationSidebarPane(
       pinReorderEnvironmentIds,
       pinThread,
       pinningEnvironmentIds,
+      autoSettleOptOutEnvironmentIds,
+      setThreadAutoSettle,
       projectByKey,
       projectTitleByProjectKey,
       regenerateThreadTitle,
@@ -1090,7 +1106,7 @@ function ThreadNavigationSidebarPane(
                   {
                     paddingBottom:
                       Platform.OS === "android"
-                        ? Math.max(insets.bottom, 16) + 148 - insets.bottom
+                        ? Math.max(insets.bottom, 16) + fabClearance - insets.bottom
                         : 16 + insets.bottom,
                     paddingTop: Platform.OS === "android" ? 6 : topListInset,
                   },
