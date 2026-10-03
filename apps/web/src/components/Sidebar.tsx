@@ -2318,6 +2318,8 @@ export default function Sidebar() {
   // Working beta orders the inbox by return time, so the sort choice only
   // applies without it.
   const sortsByLastMessage = !workingShelfEnabled && activeThreadSortOrder === "last_message";
+  // Either one orders the inbox by time, so a drop into Active only changes lifecycle.
+  const activeTimeOrdered = workingShelfEnabled || sortsByLastMessage;
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
     settleThread,
@@ -3716,21 +3718,25 @@ export default function Sidebar() {
       applySidebarThreadDrop(thread, "settled", dragState.occurredAt),
     ]).map(key);
   }, [dragState, settledThreads, threadByKey]);
-  // Working beta: the inbox is time-ordered too, so the preview shows the
-  // slot a drop will land in, not the slot under the pointer.
+  // Working beta and Last message: the inbox is time-ordered too, so the
+  // preview shows the slot a drop will land in, not the slot under the pointer.
   const draggedActiveOrder = useMemo(() => {
     const thread = dragState === null ? undefined : threadByKey.get(dragState.activeKey);
-    if (!workingShelfEnabled || dragState === null || thread === undefined) return undefined;
+    if (!activeTimeOrdered || dragState === null || thread === undefined) return undefined;
     const key = (candidate: EnvironmentThreadShell) =>
       scopedThreadKey(scopeThreadRef(candidate.environmentId, candidate.id));
-    return sortInboxThreadsByReturn(
-      [
-        ...activeThreads.filter((candidate) => key(candidate) !== dragState.activeKey),
-        applySidebarThreadDrop(thread, "active", dragState.occurredAt),
-      ],
-      (candidate) => observedInboxReturns.get(key(candidate)),
+    const afterDrop = [
+      ...activeThreads.filter((candidate) => key(candidate) !== dragState.activeKey),
+      applySidebarThreadDrop(thread, "active", dragState.occurredAt),
+    ];
+    return (
+      workingShelfEnabled
+        ? sortInboxThreadsByReturn(afterDrop, (candidate) =>
+            observedInboxReturns.get(key(candidate)),
+          )
+        : sortThreadsForSidebar(afterDrop, "last_message")
     ).map(key);
-  }, [activeThreads, dragState, threadByKey, workingShelfEnabled]);
+  }, [activeThreads, activeTimeOrdered, dragState, threadByKey, workingShelfEnabled]);
   const sidebarSortingStrategy = useMemo(
     () =>
       createSidebarSortingStrategy({
@@ -3802,7 +3808,7 @@ export default function Sidebar() {
             activeOrder: activeKeys,
             activeKeysById,
             activeReorderableKeys: activeReorderableThreadKeys,
-            activeTimeOrdered: workingShelfEnabled,
+            activeTimeOrdered,
           }).kind !== "none"
         );
       },
@@ -3824,7 +3830,7 @@ export default function Sidebar() {
     pinnedKeys,
     sidebarListItems,
     threadByKey,
-    workingShelfEnabled,
+    activeTimeOrdered,
   ]);
   const handleThreadDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -3852,7 +3858,7 @@ export default function Sidebar() {
         activeOrder: activeKeys,
         activeKeysById,
         activeReorderableKeys: activeReorderableThreadKeys,
-        activeTimeOrdered: workingShelfEnabled,
+        activeTimeOrdered,
       });
       if (plan.kind === "none") return;
       if (plan.kind === "settle" && settlingThreadKeysRef.current.has(activeKey)) return;
@@ -3986,7 +3992,7 @@ export default function Sidebar() {
       unpinThread,
       unsettleThread,
       unsnoozeThread,
-      workingShelfEnabled,
+      activeTimeOrdered,
     ],
   );
   // One snooze per thread at a time — same double-dispatch guard as settle.
