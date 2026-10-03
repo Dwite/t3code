@@ -70,7 +70,8 @@ export function useVoiceInputController(input: {
   readonly draftMessage: string;
   readonly selection: ComposerEditorSelection;
   readonly disabled?: boolean;
-  readonly onSubmit: () => void;
+  /** Sends the draft when "Send immediately" is on. Omit where dictated text has nothing to send. */
+  readonly onSubmit?: () => void;
   readonly onChangeDraftMessage: (value: string) => void;
   readonly onChangeSelection: (selection: ComposerEditorSelection) => void;
 }) {
@@ -132,7 +133,7 @@ export function useVoiceInputController(input: {
       },
       commitDraft: (text, selection) => {
         const current = latestInputRef.current;
-        if (sendImmediatelyRef.current && current.ownerKey) {
+        if (sendImmediatelyRef.current && current.onSubmit && current.ownerKey) {
           pendingSubmissionRef.current = { ownerKey: current.ownerKey, text };
         }
         current.onChangeSelection(selection);
@@ -154,7 +155,7 @@ export function useVoiceInputController(input: {
       pending.text === input.draftMessage &&
       !input.disabled
     ) {
-      input.onSubmit();
+      input.onSubmit?.();
     }
   }, [input, state.phase]);
   const previousOwnerRef = useRef(input.ownerKey);
