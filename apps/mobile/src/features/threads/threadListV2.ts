@@ -16,6 +16,7 @@ import {
   createInboxReturnTracker,
   isThreadWorking,
   sortInboxThreadsByReturn,
+  sortWorkingThreadsBySend,
 } from "@t3tools/client-runtime/state/thread-inbox";
 import {
   sortActiveThreads,
@@ -736,8 +737,8 @@ export function buildThreadListV2Items(input: {
     : input.activeThreadSortOrder === "last_message"
       ? sortThreadsForListV2(active, "last_message")
       : applyPendingThreadOrder(sortThreadsForListV2(active), "active", pending);
-  // Newest work first, by the same clock as the inbox.
-  const orderedWorking = sortInboxThreadsByReturn(working);
+  // Newest send first; finishing and waking again do not move a row.
+  const orderedWorking = sortWorkingThreadsBySend(working);
   const orderedSnoozed = [...snoozed].sort(
     (left, right) =>
       parseTimestampMs(left.snoozedUntil ?? "") - parseTimestampMs(right.snoozedUntil ?? ""),

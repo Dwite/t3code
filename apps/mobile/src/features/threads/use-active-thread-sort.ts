@@ -1,5 +1,5 @@
 import { Alert } from "react-native";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useAtomValue } from "@effect/atom-react";
 import { useCallback, useMemo } from "react";
 import type { ActiveThreadSortOrder } from "@t3tools/contracts/settings";
