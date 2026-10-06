@@ -402,8 +402,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   const lastScrolledSubmittedMessageIdRef = useRef<MessageId | null>(null);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [composerFocused, setComposerFocused] = useState(false);
-  const composerFocusedRef = useRef(composerFocused);
-  composerFocusedRef.current = composerFocused;
+  const composerFocusedRef = useRef(false);
   // A transcript dictated into the collapsed composer opens it for reading with the
   // keyboard down. Focusing the editor, tapping the feed, or sending ends the review.
   const [dictationReviewThreadKey, setDictationReviewThreadKey] = useState<string | null>(null);
@@ -411,12 +410,14 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
     dictationReviewThreadKey === selectedThreadKey &&
     props.draftMessage.trim().length > 0 &&
     !composerFocused;
-  // Dictation keeps the callback it started with, so focus is read when the transcript lands.
+  // Dictation keeps the callback it started with, and a focus event may not have rendered
+  // yet, so the ref carries the latest focus for the moment the transcript lands.
   const handleDictationComplete = useCallback(() => {
     if (!composerFocusedRef.current) setDictationReviewThreadKey(selectedThreadKey);
   }, [selectedThreadKey]);
   const handleComposerFocusChange = useCallback(
     (focused: boolean) => {
+      composerFocusedRef.current = focused;
       if (focused) setDictationReviewThreadKey(null);
       setComposerFocused(focused);
       handleOwnedInputFocusChange(focused);
@@ -841,6 +842,7 @@ export const ThreadDetailScreen = memo(function ThreadDetailScreen(props: Thread
   useLayoutEffect(() => {
     selectedThreadKeyRef.current = selectedThreadKey;
     // A replaced or unmounted native editor may not emit a blur event.
+    composerFocusedRef.current = false;
     setComposerFocused(false);
   }, [selectedThreadKey, showContent]);
 
