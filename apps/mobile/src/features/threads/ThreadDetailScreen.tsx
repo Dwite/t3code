@@ -136,6 +136,7 @@ import {
 } from "./pendingUserInputLayout";
 import {
   COMPOSER_COLLAPSED_CHROME,
+  COMPOSER_DICTATION_REVIEW_CHROME,
   COMPOSER_EXPANDED_CHROME,
   COMPOSER_LAYOUT_TRANSITION,
   COMPOSER_TRANSITION_DURATION_MS,
@@ -411,7 +412,25 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const lastScrolledSubmittedMessageIdRef = useRef<MessageId | null>(null);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [composerFocused, setComposerFocused] = useState(false);
+  const composerFocusedThreadKeyRef = useRef<string | null>(null);
+  const [dictationReviewThreadKey, setDictationReviewThreadKey] = useState<string | null>(null);
+  const isReviewingDictation = dictationReviewThreadKey === selectedThreadKey && !composerFocused;
+  const dismissDictationReview = () =>
+    setDictationReviewThreadKey((current) => (current === selectedThreadKey ? null : current));
+  const handleDictationComplete = () => {
+    // The voice session retains its startup callback. Focus must stay current and
+    // belong to that thread, even when another composer is now on screen.
+    if (composerFocusedThreadKeyRef.current !== selectedThreadKey) {
+      setDictationReviewThreadKey(selectedThreadKey);
+    }
+  };
   const handleComposerFocusChange = (focused: boolean) => {
+    if (focused) {
+      composerFocusedThreadKeyRef.current = selectedThreadKey;
+      dismissDictationReview();
+    } else if (composerFocusedThreadKeyRef.current === selectedThreadKey) {
+      composerFocusedThreadKeyRef.current = null;
+    }
     setComposerFocused(focused);
     handleOwnedInputFocusChange(focused);
   };
@@ -424,7 +443,9 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   // the hide animation, so the composer would ride down flush to the screen edge and then snap up
   // into the inset.
   const composerBottomInset = (
-    Platform.OS === "android" ? isKeyboardVisible : composerExpanded || composerFocused
+    Platform.OS === "android"
+      ? isKeyboardVisible
+      : !isReviewingDictation && (composerExpanded || composerFocused)
   )
     ? 0
     : Math.max(insets.bottom, 12);
@@ -536,7 +557,11 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
     ) ||
     (props.historyControls?.hasMoreHistory === true &&
       props.selectedThread.latestUserMessageAt !== null);
-  const composerChrome = composerExpanded ? COMPOSER_EXPANDED_CHROME : COMPOSER_COLLAPSED_CHROME;
+  const composerChrome = isReviewingDictation
+    ? COMPOSER_DICTATION_REVIEW_CHROME
+    : composerExpanded
+      ? COMPOSER_EXPANDED_CHROME
+      : COMPOSER_COLLAPSED_CHROME;
   const composerOverlapHeight = composerChrome + composerBottomInset;
   const [collapsedUserInputRequestId, setCollapsedUserInputRequestId] =
     useState<RuntimeRequestId | null>(null);
@@ -779,7 +804,9 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
 
   useLayoutEffect(() => {
     selectedThreadKeyRef.current = selectedThreadKey;
+    composerEditorRef.current?.blur();
     // A replaced or unmounted native editor may not emit a blur event.
+    composerFocusedThreadKeyRef.current = null;
     setComposerFocused(false);
   }, [selectedThreadKey, showContent]);
 
@@ -900,10 +927,18 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
 
   const handleSendMessage = async (followUp?: ActiveTurnComposerAction) => {
     const targetThreadKey = selectedThreadKey;
+    const targetDraftKey = props.composerDraftKey ?? targetThreadKey;
     const hasUserMessage = selectedThreadFeed.some(
       (entry) => entry.type === "message" && entry.message.role === "user",
     );
     const messageId = await props.onSendMessage(followUp);
+    const remainingDraft = getComposerDraftSnapshot(targetDraftKey);
+    if (
+      messageId !== null ||
+      (remainingDraft.text.length === 0 && remainingDraft.attachments.length === 0)
+    ) {
+      dismissDictationReview();
+    }
     if (messageId === null || selectedThreadKeyRef.current !== targetThreadKey) {
       return messageId;
     }
@@ -943,6 +978,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   };
 
   const collapseComposer = () => {
+    dismissDictationReview();
     composerEditorRef.current?.blur();
   };
 
@@ -1337,6 +1373,8 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
                         }
                         bottomInset={composerBottomInset}
                         onChangeDraftMessage={props.onChangeDraftMessage}
+                        isReviewingDictation={isReviewingDictation}
+                        onDictationComplete={handleDictationComplete}
                         onPickDraftMedia={props.onPickDraftMedia}
                         onPickDraftFiles={props.onPickDraftFiles}
                         onNativePasteImages={props.onNativePasteImages}
