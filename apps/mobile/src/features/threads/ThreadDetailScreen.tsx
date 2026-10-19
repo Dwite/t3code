@@ -418,8 +418,8 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
   const dismissDictationReview = () =>
     setDictationReviewThreadKey((current) => (current === selectedThreadKey ? null : current));
   const handleDictationComplete = () => {
-    // The voice session retains its startup callback. Focus must stay current and
-    // belong to that thread, even when another composer is now on screen.
+    // The voice session retains its startup callback, so only expand its selected thread.
+    if (selectedThreadKeyRef.current !== selectedThreadKey) return;
     if (composerFocusedThreadKeyRef.current !== selectedThreadKey) {
       setDictationReviewThreadKey(selectedThreadKey);
     }
@@ -808,6 +808,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
     // A replaced or unmounted native editor may not emit a blur event.
     composerFocusedThreadKeyRef.current = null;
     setComposerFocused(false);
+    setDictationReviewThreadKey(null);
   }, [selectedThreadKey, showContent]);
 
   const visitThread = useAtomCommand(threadEnvironment.visit, { reportFailure: false });
@@ -1195,6 +1196,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
                         saving={props.isSavingQueuedEdit}
                         onCancel={() => {
                           voiceInputSession.cancel(props.composerDraftKey);
+                          dismissDictationReview();
                           props.onCancelQueuedRunEdit();
                         }}
                       />
@@ -1373,6 +1375,7 @@ export const ThreadDetailScreen = function ThreadDetailScreen(props: ThreadDetai
                         }
                         bottomInset={composerBottomInset}
                         onChangeDraftMessage={props.onChangeDraftMessage}
+                        onDraftCleared={dismissDictationReview}
                         isReviewingDictation={isReviewingDictation}
                         onDictationComplete={handleDictationComplete}
                         onPickDraftMedia={props.onPickDraftMedia}

@@ -162,6 +162,7 @@ export interface ThreadComposerProps {
   readonly canSteerActiveTurn: boolean;
   readonly editorRef?: RefObject<ComposerEditorHandle | null>;
   readonly onChangeDraftMessage: (value: string) => void;
+  readonly onDraftCleared: () => void;
   readonly isReviewingDictation: boolean;
   readonly onDictationComplete: () => void;
   readonly onPickDraftMedia: () => Promise<void>;
@@ -550,7 +551,10 @@ export const ThreadComposer = function ThreadComposer(props: ThreadComposerProps
   const handleSend = async (followUp?: ActiveTurnComposerAction) => {
     if (voiceInput.blocksSubmission || pendingPastedTextAttachmentCountRef.current > 0) return;
     if (usageLimitsOffered && isUsageLimitsCommand(draftMessage) && draftAttachments.length === 0) {
-      if (openUsageLimits()) onChangeDraftMessage("");
+      if (openUsageLimits()) {
+        onChangeDraftMessage("");
+        props.onDraftCleared();
+      }
       return;
     }
     const threadKey = scopedThreadKey(props.environmentId, props.selectedThread.id);
