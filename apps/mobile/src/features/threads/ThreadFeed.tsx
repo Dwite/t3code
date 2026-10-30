@@ -472,8 +472,12 @@ function AssistantForkButton(props: {
           })
           .finally(() => setBusy(false));
       }}
-      className="items-center justify-center disabled:opacity-40"
-      style={{ width: props.buttonSize, height: props.buttonSize }}
+      className="h-7 w-7 items-center justify-center disabled:opacity-40"
+      style={
+        Platform.OS === "android"
+          ? { width: props.buttonSize, height: props.buttonSize }
+          : undefined
+      }
     >
       {busy ? (
         <AppActivityIndicator size="small" />
